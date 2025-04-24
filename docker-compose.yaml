@@ -1,0 +1,30 @@
+version: '3.5'
+
+services:
+  postgres:
+    container_name: postgres_container
+    image: postgres
+    environment:
+      POSTGRES_USER: users
+      POSTGRES_PASSWORD: 2529
+      PGDATA: /data/postgres
+    volumes:
+      - postgres:/data/postgres
+    ports:
+      - "5433:5432"
+    restart: unless-stopped
+  cache:
+    image: redis:latest
+    restart: always
+    ports:
+      - '6380:6379'
+    command: redis-server --save 20 1 --loglevel warning
+    volumes:
+      - cache:/data
+
+
+volumes:
+  postgres:
+  pgadmin:
+  cache:
+      driver: local
