@@ -1,22 +1,21 @@
-package service_test
+package authService_test
 
 import (
 	"context"
+	"registration-service/internal/model/user"
+	"registration-service/internal/service/authService"
 	"testing"
 	"time"
-
-	"registration-service/internal/model"
-	"registration-service/internal/repository/BlackListRepo"
-	"registration-service/internal/repository/refreshToken"
-	"registration-service/internal/service"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
+	"registration-service/internal/repository/BlackListRepo"
+	"registration-service/internal/repository/refreshToken"
 )
 
-func setupService(t *testing.T) *service.AuthService {
+func setupService(t *testing.T) *authService.AuthService {
 	// стартуем miniredis
 	mr, err := miniredis.Run()
 	if err != nil {
@@ -30,14 +29,14 @@ func setupService(t *testing.T) *service.AuthService {
 	refRepo := refreshToken.New(cli)
 	blRepo := BlackListRepo.NewBlackListRepo(cli)
 	// userRepo нам не нужен для этих тестов, передаём nil, но не будем вызывать методы, где он нужен
-	return service.New(nil, "test-jwt-secret", refRepo, blRepo)
+	return authService.New(nil, "test-jwt-secret", refRepo, blRepo)
 }
 
 func TestGenerateJWT_And_GetUIDByToken(t *testing.T) {
 	s := setupService(t)
 
 	// делаем payload вручную
-	user := &model.User{ID: 42}
+	user := &user.User{ID: 42}
 	tokenStr, err := s.GenerateJWT(user) // экспортируемая обёртка над generateJWT
 	assert.NoError(t, err)
 	assert.NotEmpty(t, tokenStr)

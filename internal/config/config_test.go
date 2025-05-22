@@ -12,14 +12,14 @@ import (
 )
 
 func TestNew_Success(t *testing.T) {
-	// Создаём временную папку и в ней структуру config/local.env
+	// Создаём временную папку и в ней структуру config/.env
 	td := t.TempDir()
 	cfgDir := filepath.Join(td, "config")
 	if err := os.Mkdir(cfgDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Записываем тестовый local.env
+	// Записываем тестовый .env
 	envContent := `POSTGRES_HOST=localhost
 POSTGRES_PORT=5433
 POSTGRES_USER=users
@@ -35,11 +35,11 @@ REDIS_PORT=6380
 REDIS_PASSWORD=
 REDIS_DB=0
 `
-	if err := os.WriteFile(filepath.Join(cfgDir, "local.env"), []byte(envContent), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(cfgDir, ".env"), []byte(envContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Переключаем рабочую директорию на td, чтобы config.New() увидел ./config/local.env
+	// Переключаем рабочую директорию на td, чтобы config.New() увидел ./config/.env
 	origWd, _ := os.Getwd()
 	defer os.Chdir(origWd)
 	if err := os.Chdir(td); err != nil {
@@ -69,7 +69,7 @@ REDIS_DB=0
 }
 
 func TestNew_FileNotFound(t *testing.T) {
-	// Пустая временная папка без config/local.env
+	// Пустая временная папка без config/.env
 	td := t.TempDir()
 	origWd, _ := os.Getwd()
 	defer os.Chdir(origWd)

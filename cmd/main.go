@@ -9,13 +9,18 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	auth "registration-service/api/proto-generate"
+	"registration-service/api/authproto/proto-generate"
+	fileproto "registration-service/api/fileproto/proto-generate"
+	"registration-service/internal/MinIO"
 	"registration-service/internal/config"
-	"registration-service/internal/handler"
+	"registration-service/internal/handler/authHandler"
+	"registration-service/internal/handler/fileHandler"
 	"registration-service/internal/repository/BlackListRepo"
+	"registration-service/internal/repository/fileRepo"
 	"registration-service/internal/repository/refreshToken"
 	"registration-service/internal/repository/userRepo"
-	"registration-service/internal/service"
+	"registration-service/internal/service/authService"
+	"registration-service/internal/service/fileService"
 	"registration-service/pkg/database/postgres"
 	"registration-service/pkg/database/redis"
 	"registration-service/pkg/logger"
@@ -47,9 +52,13 @@ func main() {
 	userRepo := userRepo.New(conn)
 	tokenRepo := refreshToken.New(redisClient)
 	blacklistRepo := BlackListRepo.NewBlackListRepo(redisClient)
-	authService := service.New(userRepo, cfg.JWTSecret, tokenRepo, blacklistRepo)
-	grpcHandler := handler.New(authService)
+	authService := authService.New(userRepo, cfg.JWTSecret, tokenRepo, blacklistRepo)
+	grpcHandler := authHandler.New(authService)
 
+	fileRep := fileRepo.New(conn)
+	minIO := MinIO.New(cfg.MinIO)
+	fileServ := fileService.New(fileRep, userRepo, minIO)
+	fileHandler := fileHandler.NewFileHandler(fileServ)
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
 	if err != nil {
 		log.Printf("failed to listen: %v", err)
@@ -57,6 +66,7 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 	auth.RegisterAuthServiceServer(grpcServer, grpcHandler)
+	fileproto.RegisterFileServiceServer(grpcServer, fileHandler)
 	fmt.Println(cfg.JWTSecret)
 	fmt.Println(cfg.Postgres.Password)
 	go func() {

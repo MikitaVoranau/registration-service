@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"registration-service/internal/model"
+	"registration-service/internal/model/user"
 )
 
 type UserRepo struct {
@@ -24,11 +24,11 @@ func (r *UserRepo) Create(ctx context.Context, username, email, passwordHash str
 	return nil
 }
 
-func (r *UserRepo) GetByID(ctx context.Context, id uint32) (*model.User, error) {
+func (r *UserRepo) GetByID(ctx context.Context, id uint32) (*user.User, error) {
 	query := `SELECT id, username, email, password_hash FROM users WHERE id=$1`
 	row := r.conn.QueryRow(ctx, query, id)
-
-	var user model.User
+	
+	var user user.User
 	err := row.Scan(&user.ID, &user.Username, &user.Email, &user.Password)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
@@ -36,10 +36,10 @@ func (r *UserRepo) GetByID(ctx context.Context, id uint32) (*model.User, error) 
 	return &user, nil
 }
 
-func (r *UserRepo) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
+func (r *UserRepo) GetUserByEmail(ctx context.Context, email string) (*user.User, error) {
 	query := `SELECT id, username, email, password_hash FROM users WHERE email=$1`
 	row := r.conn.QueryRow(ctx, query, email)
-	var user model.User
+	var user user.User
 	err := row.Scan(&user.ID, &user.Username, &user.Email, &user.Password)
 	if err != nil {
 		return nil, err
@@ -47,7 +47,7 @@ func (r *UserRepo) GetUserByEmail(ctx context.Context, email string) (*model.Use
 	return &user, nil
 }
 
-func (r *UserRepo) GetByUsername(ctx context.Context, username string) ([]*model.User, error) {
+func (r *UserRepo) GetByUsername(ctx context.Context, username string) ([]*user.User, error) {
 	query := `SELECT id, username, email, password_hash FROM users WHERE username=$1`
 	rows, err := r.conn.Query(ctx, query, username)
 	if err != nil {
@@ -55,9 +55,9 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) ([]*model
 	}
 	defer rows.Close()
 
-	var users []*model.User
+	var users []*user.User
 	for rows.Next() {
-		var user model.User
+		var user user.User
 		if err := rows.Scan(&user.ID, &user.Username, &user.Email, &user.Password); err != nil {
 			return nil, err
 		}

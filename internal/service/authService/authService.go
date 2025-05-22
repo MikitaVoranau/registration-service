@@ -1,4 +1,4 @@
-package service
+package authService
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"regexp"
-	"registration-service/internal/model"
+	"registration-service/internal/model/user"
 	"registration-service/internal/repository/BlackListRepo"
 	"registration-service/internal/repository/refreshToken"
 	"registration-service/internal/repository/userRepo"
@@ -67,7 +67,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 		return "", "", errors.New("user not found")
 	}
 
-	var matchedUser *model.User
+	var matchedUser *user.User
 	for _, user := range users {
 		if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err == nil {
 			matchedUser = user
@@ -92,7 +92,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 	return accessToken, refreshToken, nil
 }
 
-func (s *AuthService) generateJWT(user *model.User) (string, error) {
+func (s *AuthService) generateJWT(user *user.User) (string, error) {
 	payload := jwt.RegisteredClaims{
 		Subject:   strconv.FormatUint(uint64(user.ID), 10),
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(jwtTokenExpireTime)),
@@ -184,7 +184,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, userID uint32, oldRefres
 
 // для тестов
 // ---------------------------------------
-func (s *AuthService) GenerateJWT(user *model.User) (string, error) {
+func (s *AuthService) GenerateJWT(user *user.User) (string, error) {
 	return s.generateJWT(user)
 }
 

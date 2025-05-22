@@ -9,7 +9,7 @@ import (
 
 func TestNew(t *testing.T) {
 	t.Run("Default config", func(t *testing.T) {
-		cfg := redis.RedisConfig{
+		cfg := redis.Config{
 			Host: "localhost",
 			Port: "6379",
 		}
@@ -20,7 +20,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("With password and DB", func(t *testing.T) {
-		cfg := redis.RedisConfig{
+		cfg := redis.Config{
 			Host:     "redis",
 			Port:     "6380",
 			Password: "secret",

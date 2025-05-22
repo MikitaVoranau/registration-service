@@ -1,0 +1,125 @@
+syntax = "proto3";
+
+package file;
+
+option go_package = "./proto-generate/;file";
+
+service FileService {
+  rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse);
+  rpc DownloadFile(DownloadFileRequest) returns (stream DownloadFileResponse);
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
+  rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse);
+  rpc GetFileInfo(GetFileInfoRequest) returns (GetFileInfoResponse);
+  rpc RenameFile(RenameFileRequest) returns (RenameFileResponse);
+  rpc SetFilePermissions(SetFilePermissionsRequest) returns (SetFilePermissionsResponse);
+  rpc GetFileVersions(GetFileVersionsRequest) returns (GetFileVersionsResponse);
+  rpc RevertFileVersion(RevertFileRequest) returns (RevertFileResponse);
+}
+
+message UploadFileRequest {
+  oneof data {
+    FileMetadata metadata = 1;
+    bytes chunk = 2;
+  }
+}
+
+message FileMetadata {
+  string name = 1;
+  string content_type = 2;
+}
+
+message UploadFileResponse {
+  string file_id = 1;
+  string message = 2;
+}
+
+message DownloadFileRequest {
+  string file_id = 1;
+}
+
+message DownloadFileResponse {
+  bytes chunk = 1;
+}
+
+message ListFilesRequest {
+  bool include_shared = 1;
+}
+
+message FileInfo {
+  string file_id = 1;
+  string name = 2;
+  int64 size = 3;
+  uint32 version = 4;
+  string content_type = 5;
+  int64 created_at = 6;
+  int64 updated_at = 7; 
+  bool is_owner = 8;
+}
+
+message ListFilesResponse {
+  repeated FileInfo files = 1;
+}
+
+message DeleteFileRequest {
+  string file_id = 1;
+}
+
+message DeleteFileResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetFileInfoRequest {
+  string file_id = 1;
+}
+
+message GetFileInfoResponse {
+  FileInfo file = 1;
+}
+
+message   RenameFileRequest {
+  string file_id = 1;
+  string new_name = 2;
+}
+
+message RenameFileResponse {
+  bool success = 1;
+}
+
+message PermissionEntry {
+  int32 user_id = 1;
+  int32 permission_type = 2;
+}
+
+message SetFilePermissionsRequest {
+  string file_id = 1;
+  repeated PermissionEntry permissions = 2;
+}
+
+message SetFilePermissionsResponse {
+  bool success = 1;
+}
+
+message GetFileVersionsRequest {
+  string file_id = 1;
+}
+
+message FileVersionInfo {
+  uint32 version_number = 1;
+  int64 size = 2;
+  int64 created_at = 3;
+}
+
+message GetFileVersionsResponse {
+  repeated FileVersionInfo versions = 1;
+}
+
+message RevertFileRequest {
+  string file_id = 1;
+  uint32 version = 2;
+}
+
+message RevertFileResponse {
+  bool success = 1;
+  string new_file_id = 2;
+}

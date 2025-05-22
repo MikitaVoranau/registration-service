@@ -1,16 +1,15 @@
-package model_test
+package user_test
 
 import (
+	"registration-service/internal/model/user"
 	"testing"
-
-	"registration-service/internal/model"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestUserModel(t *testing.T) {
 	t.Run("User struct fields", func(t *testing.T) {
-		user := model.User{
+		user := user.User{
 			ID:       1,
 			Username: "testuser",
 			Email:    "test@example.com",
