@@ -11,6 +11,7 @@ services:
     ports:
       - "5433:5432"
     restart: unless-stopped
+
   cache:
     image: redis:latest
     restart: always
@@ -19,8 +20,9 @@ services:
     command: redis-server --save 20 1 --loglevel warning
     volumes:
       - cache:/data
+
   minio:
-    container_name: MinIO
+    container_name: minio
     image: 'bitnami/minio:latest'
     volumes:
       - 'minio_data:/data'
@@ -35,13 +37,40 @@ services:
       MINIO_DEFAULT_BUCKETS: "${MINIO_BUCKET_NAME}"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth/Dockerfile
+    env_file:
+      - .env
+    environment:
+      GRPC_PORT: 50051
+      JWT_SECRET: "${JWT_TOKEN}"
+    ports:
+      - "50051:50051"
+    depends_on:
+      - postgres
+      - cache
+
+  file-service:
+      build:
+        context: .
+        dockerfile: file/Dockerfile
+      env_file:
+        - .env
+      environment:
+        GRPC  _PORT: 50052
+        AUTH_SERVICE_ADDR: "auth-service:50051"
+      ports:
+        - "50052:50052"
+      depends_on:
+        - auth-service
+        - postgres
+        - minio
 
 volumes:
   minio_data:
   postgres:
-  pgadmin:
   cache:
-      driver: local
+    driver: local

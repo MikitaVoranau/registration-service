@@ -6,24 +6,24 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"io"
+	auth "registration-service/api/authproto/proto-generate"
 	"registration-service/internal/MinIO"
 	"registration-service/internal/model/fileInfo"
 	"registration-service/internal/repository/fileRepo"
-	"registration-service/internal/repository/userRepo"
 	"time"
 )
 
 type FileService struct {
-	fileRepo *fileRepo.FileRepository
-	userRepo *userRepo.UserRepo
-	minIO    *MinIO.MinIOClient
+	fileRepo   *fileRepo.FileRepository
+	authClient auth.AuthServiceClient
+	minIO      *MinIO.MinIOClient
 }
 
-func New(fileRepo *fileRepo.FileRepository, userRepo *userRepo.UserRepo, minIO *MinIO.MinIOClient) *FileService {
+func New(fileRepo *fileRepo.FileRepository, authClient auth.AuthServiceClient, minIO *MinIO.MinIOClient) *FileService {
 	return &FileService{
-		fileRepo: fileRepo,
-		userRepo: userRepo,
-		minIO:    minIO,
+		fileRepo:   fileRepo,
+		authClient: authClient,
+		minIO:      minIO,
 	}
 }
 
