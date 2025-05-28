@@ -91,6 +91,24 @@ services:
       auth-service:
         condition: service_started
 
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    env_file:
+      - .env
+    environment:
+      PORT: 8080
+      AUTH_SERVICE_ADDR: "auth-service:50051"
+      FILE_SERVICE_ADDR: "file-service:50052"
+    ports:
+      - "8080:8080"
+    depends_on:
+      auth-service:
+        condition: service_started
+      file-service:
+        condition: service_started
+
 volumes:
   minio_data:
   postgres:
