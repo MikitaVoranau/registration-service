@@ -3,9 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"net"
 	auth "registration-service/api/authproto/proto-generate"
 	fileproto "registration-service/api/fileproto/proto-generate"
@@ -17,6 +14,10 @@ import (
 	"registration-service/pkg/database/postgres"
 	"registration-service/pkg/logger"
 	"registration-service/pkg/middleware"
+
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {

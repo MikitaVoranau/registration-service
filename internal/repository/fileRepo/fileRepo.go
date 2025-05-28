@@ -3,9 +3,10 @@ package fileRepo
 import (
 	"context"
 	"errors"
+	"registration-service/internal/model/fileInfo"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"registration-service/internal/model/fileInfo"
 )
 
 type FileRepository struct {

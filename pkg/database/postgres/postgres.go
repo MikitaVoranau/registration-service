@@ -3,12 +3,13 @@ package postgres
 import (
 	"context"
 	"fmt"
+
 	"github.com/jackc/pgx/v5"
 )
 
 type Config struct {
-	Host     string `env:"POSTGRES_HOST" env-default:"localhost"`
-	Port     uint16 `env:"POSTGRES_PORT" env-default:"5433"`
+	Host     string `env:"POSTGRES_HOST" env-default:"postgres"`
+	Port     uint16 `env:"POSTGRES_PORT" env-default:"5432"`
 	Username string `env:"POSTGRES_USER" env-default:"users"`
 	Password string `env:"POSTGRES_PASSWORD" env-default:"2529"`
 	Database string `env:"POSTGRES_DB"   env-default:"users"`

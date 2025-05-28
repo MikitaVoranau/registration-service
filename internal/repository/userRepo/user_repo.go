@@ -3,8 +3,9 @@ package userRepo
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v5"
 	"registration-service/internal/model/user"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type UserRepo struct {
@@ -27,7 +28,7 @@ func (r *UserRepo) Create(ctx context.Context, username, email, passwordHash str
 func (r *UserRepo) GetByID(ctx context.Context, id uint32) (*user.User, error) {
 	query := `SELECT id, username, email, password_hash FROM users WHERE id=$1`
 	row := r.conn.QueryRow(ctx, query, id)
-	
+
 	var user user.User
 	err := row.Scan(&user.ID, &user.Username, &user.Email, &user.Password)
 	if err != nil {
