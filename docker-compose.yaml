@@ -3,9 +3,9 @@ services:
     container_name: postgres_container
     image: postgres
     environment:
-      POSTGRES_USER: users
-      POSTGRES_PASSWORD: 2529
-      POSTGRES_DB: users
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /data/postgres
       POSTGRES_INITDB_ARGS: "--data-checksums"
       POSTGRES_HOST_AUTH_METHOD: trust
@@ -55,6 +55,21 @@ services:
       timeout: 5s
       retries: 5
 
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./minio-init.sh:/minio-init.sh
+    entrypoint: ["/bin/sh", "/minio-init.sh"]
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD}"
+      MINIO_ACCESS_KEY: "${MINIO_ACCESS_KEY}"
+      MINIO_SECRET_KEY: "${MINIO_SECRET_KEY}"
+      MINIO_BUCKET_NAME: "${MINIO_BUCKET_NAME}"
+
   auth-service:
     build:
       context: .
@@ -62,10 +77,10 @@ services:
     env_file:
       - .env
     environment:
-      GRPC_PORT: 50051
+      GRPC_PORT: ${GRPC_AUTH_PORT}
       JWT_SECRET: "${JWT_TOKEN}"
     ports:
-      - "50051:50051"
+      - "${GRPC_AUTH_PORT}:${GRPC_AUTH_PORT}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,15 +94,21 @@ services:
     env_file:
       - .env
     environment:
-      GRPC_PORT: 50052
-      AUTH_SERVICE_ADDR: "auth-service:50051"
+      GRPC_PORT: ${GRPC_FILE_PORT}
+      AUTH_SERVICE_ADDR: "auth-service:${GRPC_AUTH_PORT}"
+      POSTGRES_HOST: postgres
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ACCESS_KEY: "${MINIO_ACCESS_KEY}"
+      MINIO_SECRET_KEY: "${MINIO_SECRET_KEY}"
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET_NAME: "${MINIO_BUCKET_NAME}"
     ports:
-      - "50052:50052"
+      - "${GRPC_FILE_PORT}:${GRPC_FILE_PORT}"
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
-        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
       auth-service:
         condition: service_started
 
@@ -98,11 +119,11 @@ services:
     env_file:
       - .env
     environment:
-      PORT: 8080
-      AUTH_SERVICE_ADDR: "auth-service:50051"
-      FILE_SERVICE_ADDR: "file-service:50052"
+      PORT: ${PORT}
+      AUTH_SERVICE_ADDR: "auth-service:${GRPC_AUTH_PORT}"
+      FILE_SERVICE_ADDR: "file-service:${GRPC_FILE_PORT}"
     ports:
-      - "8080:8080"
+      - "${PORT}:${PORT}"
     depends_on:
       auth-service:
         condition: service_started

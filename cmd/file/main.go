@@ -22,29 +22,54 @@ import (
 
 func main() {
 	ctx := context.Background()
-	ctx, _ = logger.New(ctx)
+	var err error
+	ctx, err = logger.New(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize logger: %v", err))
+	}
+	log := logger.GetLogger(ctx)
+
+	log.Info("Starting file service...")
 
 	cfg, err := config.LoadFileConfig()
 	if err != nil {
-		logger.GetLogger(ctx).Fatal("Error loading config", zap.Error(err))
+		log.Fatal("Error loading config", zap.Error(err))
 	}
-	authConn, _ := grpc.Dial(
+	log.Info("Config loaded successfully",
+		zap.String("auth_service_addr", cfg.AuthServiceAddr),
+		zap.String("minio_endpoint", cfg.MinIO.MinioEndpoint),
+		zap.String("minio_bucket", cfg.MinIO.BucketName))
+
+	authConn, err := grpc.Dial(
 		cfg.AuthServiceAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
+	if err != nil {
+		log.Fatal("Failed to connect to auth service", zap.Error(err))
+	}
 	defer authConn.Close()
+	log.Info("Connected to auth service")
 
 	authClient := auth.NewAuthServiceClient(authConn)
 
 	conn, err := postgres.New(cfg.Postgres)
 	if err != nil {
-		logger.GetLogger(ctx).Fatal("Error connecting to postgres", zap.Error(err))
+		log.Fatal("Error connecting to postgres", zap.Error(err))
 	}
+	log.Info("Connected to postgres")
+
+	minioClient, err := MinIO.New(cfg.MinIO)
+	if err != nil {
+		log.Fatal("Failed to initialize MinIO client", zap.Error(err))
+	}
+	log.Info("MinIO client initialized successfully",
+		zap.String("endpoint", cfg.MinIO.MinioEndpoint),
+		zap.String("bucket", cfg.MinIO.BucketName))
 
 	fileSvc := fileService.New(
 		fileRepo.New(conn),
 		authClient,
-		MinIO.New(cfg.MinIO),
+		minioClient,
 	)
 
 	server := grpc.NewServer(
@@ -52,8 +77,13 @@ func main() {
 	)
 	fileproto.RegisterFileServiceServer(server, fileHandler.NewFileHandler(fileSvc))
 
-	lis, _ := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
+	if err != nil {
+		log.Fatal("Failed to listen", zap.Error(err))
+	}
+	log.Info("Starting gRPC server", zap.String("port", cfg.GRPCPort))
+
 	if err := server.Serve(lis); err != nil {
-		logger.GetLogger(ctx).Fatal("Failed to serve", zap.Error(err))
+		log.Fatal("Failed to serve", zap.Error(err))
 	}
 }

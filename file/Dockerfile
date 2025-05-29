@@ -16,9 +16,11 @@ FROM alpine:3.18
 
 WORKDIR /app
 
-COPY --from=builder /app/file-service .
+# Добавляем CA сертификаты и timezone
+RUN apk --no-cache add ca-certificates tzdata
 
-COPY .env /app/.env
+COPY --from=builder /app/file-service .
+COPY --from=builder /app/.env .
 
 EXPOSE 50052
 CMD ["./file-service"]

@@ -4,13 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	auth "registration-service/api/authproto/proto-generate"
 	"registration-service/internal/MinIO"
 	"registration-service/internal/model/fileInfo"
 	"registration-service/internal/repository/fileRepo"
+	"strconv"
 	"time"
+
+	"github.com/google/uuid"
+	"google.golang.org/grpc/metadata"
 )
 
 type FileService struct {
@@ -30,11 +33,31 @@ func New(fileRepo *fileRepo.FileRepository, authClient auth.AuthServiceClient, m
 // rpc SetFilePermissions(SetFilePermissionsRequest) returns (SetFilePermissionsResponse);
 // rpc GetFileVersions(GetFileVersionsRequest) returns (GetFileVersionsResponse);
 // rpc RevertFileVersion(RevertFileRequest) returns (RevertFileResponse);
-func (s *FileService) UploadFile(ctx context.Context, name string, content_type string, fileData io.Reader, size int64) (*fileInfo.File, error) {
-	userID, ok := ctx.Value("userID").(uint32)
+func getUserIDFromContext(ctx context.Context) (uint32, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return nil, errors.New("userID is not auth")
+		return 0, errors.New("no metadata in context")
 	}
+
+	userIDs := md.Get("user_id")
+	if len(userIDs) == 0 {
+		return 0, errors.New("no user_id in metadata")
+	}
+
+	userID, err := strconv.ParseUint(userIDs[0], 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("invalid user_id: %v", err)
+	}
+
+	return uint32(userID), nil
+}
+
+func (s *FileService) UploadFile(ctx context.Context, name string, content_type string, fileData io.Reader, size int64) (*fileInfo.File, error) {
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user ID: %v", err)
+	}
+
 	fileID := uuid.New()
 	version := 1
 	storageKey := fmt.Sprintf("%s/v%d", fileID, version)
@@ -57,9 +80,9 @@ func (s *FileService) UploadFile(ctx context.Context, name string, content_type 
 }
 
 func (s *FileService) DownloadFile(ctx context.Context, fileID uuid.UUID) (io.Reader, *fileInfo.File, error) {
-	userID, ok := ctx.Value("userID").(uint32)
-	if !ok {
-		return nil, nil, errors.New("userID is not auth")
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get user ID: %v", err)
 	}
 	file, err := s.fileRepo.GetFileByID(ctx, fileID)
 	if err != nil {
@@ -87,9 +110,9 @@ func (s *FileService) DownloadFile(ctx context.Context, fileID uuid.UUID) (io.Re
 }
 
 func (s *FileService) DeleteFile(ctx context.Context, fileID uuid.UUID) error {
-	userID, ok := ctx.Value("userID").(uint32)
-	if !ok {
-		return errors.New("userID is not auth")
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get user ID: %v", err)
 	}
 	file, err := s.fileRepo.GetFileByID(ctx, fileID)
 	if err != nil {
@@ -117,9 +140,9 @@ func (s *FileService) DeleteFile(ctx context.Context, fileID uuid.UUID) error {
 }
 
 func (s *FileService) ListFiles(ctx context.Context, includeShared bool) ([]*fileInfo.File, error) {
-	userID, ok := ctx.Value("userID").(uint32)
-	if !ok {
-		return nil, errors.New("user not authenticated")
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user ID: %v", err)
 	}
 
 	files, err := s.fileRepo.ListFilesByOwner(ctx, int(userID))
@@ -139,9 +162,9 @@ func (s *FileService) ListFiles(ctx context.Context, includeShared bool) ([]*fil
 }
 
 func (s *FileService) GetFileInfo(ctx context.Context, fileID uuid.UUID) (*fileInfo.File, *fileInfo.FileVersion, error) {
-	userID, ok := ctx.Value("userID").(uint32)
-	if !ok {
-		return nil, nil, errors.New("user not authenticated")
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get user ID: %v", err)
 	}
 	hasAccess, err := s.checkFileAccess(ctx, fileID, int(userID))
 	if err != nil || !hasAccess {
@@ -165,9 +188,9 @@ func (s *FileService) GetFileInfo(ctx context.Context, fileID uuid.UUID) (*fileI
 }
 
 func (s *FileService) RenameFile(ctx context.Context, fileID uuid.UUID, newName string) error {
-	userID, ok := ctx.Value("userID").(uint32)
-	if !ok {
-		return errors.New("user not authenticated")
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get user ID: %v", err)
 	}
 	file, err := s.fileRepo.GetFileByID(ctx, fileID)
 	if err != nil {
@@ -186,9 +209,9 @@ func (s *FileService) RenameFile(ctx context.Context, fileID uuid.UUID, newName 
 }
 
 func (s *FileService) SetFilePermissions(ctx context.Context, fileID uuid.UUID, permissions []fileInfo.FilePermission) error {
-	userID, ok := ctx.Value("userID").(uint32)
-	if !ok {
-		return errors.New("user not authenticated")
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get user ID: %v", err)
 	}
 	file, err := s.fileRepo.GetFileByID(ctx, fileID)
 	if err != nil {
@@ -231,9 +254,9 @@ func (s *FileService) GetFileVersions(ctx context.Context, fileID uuid.UUID) ([]
 }
 
 func (s *FileService) RevertFileVersion(ctx context.Context, fileID uuid.UUID, versionNum int) (*fileInfo.File, error) {
-	userID, ok := ctx.Value("userID").(uint32)
-	if !ok {
-		return nil, errors.New("user not authenticated")
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user ID: %v", err)
 	}
 	file, err := s.fileRepo.GetFileByID(ctx, fileID)
 	if err != nil {

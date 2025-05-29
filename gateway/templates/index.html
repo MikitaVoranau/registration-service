@@ -29,7 +29,7 @@
                 <h3>Login</h3>
                 <form onsubmit="return handleLogin(event)">
                     <div class="mb-3">
-                        <input type="email" class="form-control" id="loginEmail" placeholder="Email" required>
+                        <input type="text" class="form-control" id="loginUsername" placeholder="Username" required>
                     </div>
                     <div class="mb-3">
                         <input type="password" class="form-control" id="loginPassword" placeholder="Password" required>
@@ -46,6 +46,9 @@
             <div id="registerForm" class="hidden">
                 <h3>Register</h3>
                 <form onsubmit="return handleRegister(event)">
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="registerUsername" placeholder="Username" required>
+                    </div>
                     <div class="mb-3">
                         <input type="email" class="form-control" id="registerEmail" placeholder="Email" required>
                     </div>
@@ -119,7 +122,7 @@
         // Handle login
         async function handleLogin(e) {
             e.preventDefault();
-            const email = document.getElementById('loginEmail').value;
+            const username = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
 
             try {
@@ -128,7 +131,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ email, password }),
+                    body: JSON.stringify({ username, password }),
                 });
 
                 if (response.ok) {
@@ -148,6 +151,7 @@
         // Handle register
         async function handleRegister(e) {
             e.preventDefault();
+            const username = document.getElementById('registerUsername').value;
             const email = document.getElementById('registerEmail').value;
             const password = document.getElementById('registerPassword').value;
 
@@ -157,7 +161,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ email, password }),
+                    body: JSON.stringify({ username, email, password }),
                 });
 
                 if (response.ok) {
@@ -183,6 +187,12 @@
             formData.append('file', file);
 
             try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    alert('Please login first');
+                    return;
+                }
+
                 const response = await fetch('/api/upload', {
                     method: 'POST',
                     headers: {
@@ -193,13 +203,15 @@
 
                 if (response.ok) {
                     fileInput.value = '';
+                    alert('File uploaded successfully');
                     loadFiles();
                 } else {
-                    alert('Upload failed');
+                    const errorData = await response.json();
+                    alert(errorData.error || 'Upload failed');
                 }
             } catch (error) {
                 console.error('Upload error:', error);
-                alert('Upload failed');
+                alert('Upload failed: ' + error.message);
             }
         }
 

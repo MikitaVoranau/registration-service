@@ -2,14 +2,21 @@ FROM golang:latest
 
 WORKDIR /app
 
-# Copy go mod and sum files
-COPY gateway/go.mod gateway/go.sum ./
+# Copy the main module files
+COPY go.mod go.sum ./
+
+# Copy gateway module files
+COPY gateway/go.mod gateway/go.sum gateway/
+
+# Copy source code
+COPY api/ api/
+COPY gateway/ gateway/
+
+# Set working directory to gateway
+WORKDIR /app/gateway
 
 # Download all dependencies
 RUN go mod download
-
-# Copy the source code
-COPY gateway/ ./
 
 # Build the application
 RUN go build -o main .
