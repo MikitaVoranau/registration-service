@@ -53,6 +53,7 @@ func main() {
 	fileproto.RegisterFileServiceServer(server, fileHandler.NewFileHandler(fileSvc))
 
 	lis, _ := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
+	fmt.Println("Listening on port:", cfg.GRPCPort)
 	if err := server.Serve(lis); err != nil {
 		logger.GetLogger(ctx).Fatal("Failed to serve", zap.Error(err))
 	}

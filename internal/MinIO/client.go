@@ -5,17 +5,18 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"io"
+	"log"
 )
 
 type Config struct {
-	MinioEndpoint     string `env:"MINIO_ENDPOINT" envDefault:"localhost:9000"`
+	MinioEndpoint     string `env:"MINIO_ENDPOINT" envDefault:"minio:9000"`
 	BucketName        string `env:"MINIO_BUCKET_NAME" envDefault:"storage"`
 	MinioRootUser     string `env:"MINIO_ROOT_USER" envDefault:"admin"`
 	MinioRootPassword string `env:"MINIO_ROOT_PASSWORD" envDefault:"Study2005"`
 	MinioUseSSL       bool   `env:"MINIO_USE_SSL" envDefault:"false"`
 
-	MinioAccessKey string `env:"MINIO_ACCESS_KEY" envDefault:""`
-	MinioSecretKey string `env:"MINIO_SECRET_KEY" envDefault:""`
+	MinioAccessKey string `env:"MINIO_ACCESS_KEY" envDefault:"admin"`
+	MinioSecretKey string `env:"MINIO_SECRET_KEY" envDefault:"Study2005@"`
 }
 
 type MinIOClient struct {
@@ -26,9 +27,10 @@ type MinIOClient struct {
 func New(cfg Config) *MinIOClient {
 	client, err := minio.New(cfg.MinioEndpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
-		Secure: true,
+		Secure: cfg.MinioUseSSL,
 	})
 	if err != nil {
+		log.Printf("Failed to initialize MinIO client: %v", err) // Логирование
 		return nil
 	}
 
@@ -37,6 +39,7 @@ func New(cfg Config) *MinIOClient {
 	if err != nil {
 		exists, errBucketExists := client.BucketExists(ctx, cfg.BucketName)
 		if !(errBucketExists == nil && exists) {
+			log.Printf("Failed to create bucket '%s' and it does not exist: %v", cfg.BucketName, err)
 			return nil
 		}
 	}

@@ -3,13 +3,15 @@ package fileHandler
 import (
 	"bytes"
 	"context"
+	"io"
+	"log"
+	fileproto "registration-service/api/fileproto/proto-generate"
+	"registration-service/internal/model/fileInfo"
+	"registration-service/internal/service/fileService"
+
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"io"
-	"registration-service/api/fileproto/proto-generate"
-	"registration-service/internal/model/fileInfo"
-	"registration-service/internal/service/fileService"
 )
 
 type FileHandler struct {
@@ -91,23 +93,30 @@ func (h *FileHandler) ListFiles(ctx context.Context, req *fileproto.ListFilesReq
 
 	files, err := h.fileService.ListFiles(ctx, req.IncludeShared)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		log.Printf("ERROR: ListFiles - h.fileService.ListFiles failed: %v", err)
+		return nil, status.Error(codes.Internal, "failed to retrieve file list")
 	}
 
 	var fileInfos []*fileproto.FileInfo
 	for _, file := range files {
-		fileInfo, fileVers, err := h.fileService.GetFileWithVersion(ctx, file.ID)
+		_, currentVersionInfo, err := h.fileService.GetFileWithVersion(ctx, file.ID)
 		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
+			log.Printf("ERROR: ListFiles - GetFileWithVersion for file ID %s failed: %v", file.ID.String(), err)
+			return nil, status.Error(codes.Internal, "failed to retrieve details for a file")
+		}
+
+		if currentVersionInfo == nil {
+			log.Printf("WARN: ListFiles - GetFileWithVersion for file ID %s returned nil version info without error. Skipping.", file.ID.String())
+			continue
 		}
 
 		fileInfos = append(fileInfos, &fileproto.FileInfo{
 			FileId:    file.ID.String(),
 			Name:      file.Name,
-			Size:      fileVers.Size,
+			Size:      currentVersionInfo.Size,
 			Version:   uint32(file.CurrentVersion),
 			CreatedAt: file.CreatedAt.Unix(),
-			UpdatedAt: fileInfo.CreatedAt.Unix(),
+			UpdatedAt: currentVersionInfo.CreatedAt.Unix(),
 			IsOwner:   file.OwnerID == userID,
 		})
 	}

@@ -17,7 +17,7 @@ type AuthConfig struct {
 
 type FileConfig struct {
 	GRPCPort        string `env:"GRPC_FILE_PORT" env-default:"50052"`
-	AuthServiceAddr string `env:"AUTH_SERVICE_ADDR" env-default:"localhost:50053"`
+	AuthServiceAddr string `env:"AUTH_SERVICE_ADDR" env-default:"localhost:50051"`
 	Postgres        postgres.Config
 	MinIO           MinIO.Config
 }
