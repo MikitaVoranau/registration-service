@@ -2,10 +2,11 @@ package authHandler
 
 import (
 	"context"
+	auth "registration-service/api/authproto/proto-generate"
+	"registration-service/internal/service/authService"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"registration-service/api/authproto/proto-generate"
-	"registration-service/internal/service/authService"
 )
 
 type GRPChandler struct {
@@ -18,19 +19,19 @@ func New(service *authService.AuthService) *GRPChandler {
 }
 
 func (h *GRPChandler) Register(ctx context.Context, req *auth.RegisterRequest) (*auth.RegisterResponse, error) {
-	err := h.authService.Register(ctx, req.Username, req.Email, req.Password)
+	userID, err := h.authService.Register(ctx, req.Username, req.Email, req.Password)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	return &auth.RegisterResponse{Message: "user created"}, nil
+	return &auth.RegisterResponse{Message: "user created", UserId: userID}, nil
 }
 
 func (h *GRPChandler) Login(ctx context.Context, req *auth.LoginRequest) (*auth.LoginResponse, error) {
-	accesstoken, refreshToken, err := h.authService.Login(ctx, req.Username, req.Password)
+	accesstoken, refreshToken, userID, err := h.authService.Login(ctx, req.Username, req.Password)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
-	return &auth.LoginResponse{Token: accesstoken, RefreshToken: refreshToken}, nil
+	return &auth.LoginResponse{Token: accesstoken, RefreshToken: refreshToken, UserId: userID}, nil
 }
 
 func (h *GRPChandler) GetUIDByToken(ctx context.Context, req *auth.GetUIDByTokenRequest) (*auth.GetUIDByTokenResponse, error) {

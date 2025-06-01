@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -21,18 +22,23 @@ const (
 )
 
 func main() {
+	fmt.Println("Клиент запущен...")
+
 	// --- Подключение к AuthService ---
+	fmt.Println("Подключение к AuthService...")
 	authConn, err := grpc.Dial(authServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Не удалось подключиться к AuthService: %v", err)
 	}
 	defer authConn.Close()
 	authClient := authproto.NewAuthServiceClient(authConn)
+	fmt.Println("Успешно подключено к AuthService.")
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
 	// --- Регистрация (или вход) ---
+	fmt.Println("Попытка регистрации нового пользователя...")
 	// Пример регистрации нового пользователя
 	// Для тестирования можно закомментировать регистрацию и использовать существующего пользователя для входа
 	registerResp, err := authClient.Register(ctx, &authproto.RegisterRequest{
@@ -42,11 +48,14 @@ func main() {
 	})
 	if err != nil {
 		log.Printf("Ошибка регистрации (возможно, пользователь уже существует): %v", err)
+		fmt.Printf("Ошибка регистрации: %v\n", err)
 		// Попробуем войти, если регистрация не удалась (например, пользователь уже существует)
 	} else {
 		log.Printf("Ответ регистрации: %s", registerResp.GetMessage())
+		fmt.Printf("Ответ регистрации: %s\n", registerResp.GetMessage())
 	}
 
+	fmt.Println("Попытка входа пользователя...")
 	// Вход для получения токена
 	loginResp, err := authClient.Login(ctx, &authproto.LoginRequest{
 		Username: "testuser_client", // Используйте того же пользователя, что и при регистрации
@@ -56,15 +65,18 @@ func main() {
 		log.Fatalf("Ошибка входа: %v", err)
 	}
 	log.Printf("Успешный вход. Токен получен.")
+	fmt.Println("Успешный вход. Токен получен.")
 	accessToken := loginResp.GetToken()
 
 	// --- Подключение к FileService ---
+	fmt.Println("Подключение к FileService...")
 	fileConn, err := grpc.Dial(fileServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Не удалось подключиться к FileService: %v", err)
 	}
 	defer fileConn.Close()
 	fileClient := fileproto.NewFileServiceClient(fileConn)
+	fmt.Println("Успешно подключено к FileService.")
 
 	// --- Создание контекста с токеном авторизации ---
 	md := metadata.Pairs("authorization", "Bearer "+accessToken)
@@ -74,6 +86,7 @@ func main() {
 
 	// --- Загрузка файла (пример) ---
 	log.Println("Попытка загрузки файла...")
+	fmt.Println("Попытка загрузки файла...")
 	// Создадим простой текстовый файл для загрузки
 	dummyFileName := "test_upload.txt"
 	dummyContent := []byte("Это тестовое содержимое файла для загрузки.")
@@ -89,6 +102,7 @@ func main() {
 	}
 
 	// Сначала отправляем метаданные
+	fmt.Println("Отправка метаданных файла...")
 	err = stream.Send(&fileproto.UploadFileRequest{
 		Data: &fileproto.UploadFileRequest_Metadata{
 			Metadata: &fileproto.FileMetadata{
@@ -100,8 +114,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Не удалось отправить метаданные файла: %v. Ошибка стрима: %v", err, stream.RecvMsg(nil))
 	}
+	fmt.Println("Метаданные файла успешно отправлены.")
 
 	// Затем отправляем содержимое файла по частям (чанками)
+	fmt.Println("Отправка чанков файла...")
 	chunkSize := 1024 // 1KB
 	buffer := make([]byte, chunkSize)
 	file, err := os.Open(dummyFileName)
@@ -125,31 +141,36 @@ func main() {
 		})
 		if err != nil {
 			log.Fatalf("Не удалось отправить чанк файла: %v. Ошибка стрима: %v", err, stream.RecvMsg(nil))
-
 		}
 	}
+	fmt.Println("Все чанки файла успешно отправлены.")
 
 	uploadResp, err := stream.CloseAndRecv()
 	if err != nil {
 		log.Fatalf("Не удалось получить ответ после загрузки файла: %v", err)
 	}
 	log.Printf("Ответ UploadFile: ID файла - %s, Сообщение - %s", uploadResp.GetFileId(), uploadResp.GetMessage())
+	fmt.Printf("Ответ UploadFile: ID файла - %s, Сообщение - %s\n", uploadResp.GetFileId(), uploadResp.GetMessage())
 	uploadedFileId := uploadResp.GetFileId()
 
 	// --- Получение списка файлов ---
 	log.Println("Попытка получить список файлов...")
+	fmt.Println("Попытка получить список файлов...")
 	listFilesResp, err := fileClient.ListFiles(fileCtxTimeout, &fileproto.ListFilesRequest{IncludeShared: false})
 	if err != nil {
 		log.Fatalf("Ошибка при получении списка файлов: %v", err)
 	}
 	log.Println("Список файлов:")
+	fmt.Println("Список файлов:")
 	for _, f := range listFilesResp.GetFiles() {
 		log.Printf(" - ID: %s, Имя: %s, Размер: %d, Владелец: %t", f.GetFileId(), f.GetName(), f.GetSize(), f.GetIsOwner())
+		fmt.Printf(" - ID: %s, Имя: %s, Размер: %d, Владелец: %t\n", f.GetFileId(), f.GetName(), f.GetSize(), f.GetIsOwner())
 	}
 
 	// --- Скачивание файла (пример) ---
 	if uploadedFileId != "" {
 		log.Printf("Попытка скачивания файла с ID: %s...", uploadedFileId)
+		fmt.Printf("Попытка скачивания файла с ID: %s...\n", uploadedFileId)
 		downloadStream, err := fileClient.DownloadFile(fileCtxTimeout, &fileproto.DownloadFileRequest{FileId: uploadedFileId})
 		if err != nil {
 			log.Fatalf("Не удалось начать скачивание файла: %v", err)
@@ -172,12 +193,14 @@ func main() {
 			log.Fatalf("Не удалось сохранить скачанный файл: %v", err)
 		}
 		log.Printf("Файл %s успешно скачан и сохранен как %s. Размер: %d байт", dummyFileName, downloadedFileName, len(downloadedData))
+		fmt.Printf("Файл %s успешно скачан и сохранен как %s. Размер: %d байт\n", dummyFileName, downloadedFileName, len(downloadedData))
 		defer os.Remove(downloadedFileName)
 	}
 
 	// --- Получение информации о файле (GetFileInfo) ---
 	if uploadedFileId != "" {
 		log.Printf("Попытка получить информацию о файле с ID: %s...", uploadedFileId)
+		fmt.Printf("Попытка получить информацию о файле с ID: %s...\n", uploadedFileId)
 		fileInfoResp, err := fileClient.GetFileInfo(fileCtxTimeout, &fileproto.GetFileInfoRequest{FileId: uploadedFileId})
 		if err != nil {
 			log.Fatalf("Ошибка при получении информации о файле: %v", err)
@@ -200,6 +223,7 @@ func main() {
 	newFileName := "renamed_" + dummyFileName
 	if uploadedFileId != "" {
 		log.Printf("Попытка переименовать файл с ID: %s в '%s'...", uploadedFileId, newFileName)
+		fmt.Printf("Попытка переименовать файл с ID: %s в '%s'...!\n", uploadedFileId, newFileName)
 		_, err := fileClient.RenameFile(fileCtxTimeout, &fileproto.RenameFileRequest{FileId: uploadedFileId, NewName: newFileName})
 		if err != nil {
 			log.Fatalf("Ошибка при переименовании файла: %v", err)
@@ -230,6 +254,7 @@ func main() {
 	var initialVersionNumber uint32 = 0
 	if uploadedFileId != "" {
 		log.Printf("Попытка получить версии файла с ID: %s...", uploadedFileId)
+		fmt.Printf("Попытка получить версии файла с ID: %s...\n", uploadedFileId)
 		versionsResp, err := fileClient.GetFileVersions(fileCtxTimeout, &fileproto.GetFileVersionsRequest{FileId: uploadedFileId})
 		if err != nil {
 			log.Fatalf("Ошибка при получении версий файла: %v", err)
@@ -254,6 +279,7 @@ func main() {
 	var revertedFileId string
 	if uploadedFileId != "" && initialVersionNumber > 0 {
 		log.Printf("Попытка откатить файл ID: %s к версии %d...", uploadedFileId, initialVersionNumber)
+		fmt.Printf("Попытка откатить файл ID: %s к версии %d...\n", uploadedFileId, initialVersionNumber)
 		revertResp, err := fileClient.RevertFileVersion(fileCtxTimeout, &fileproto.RevertFileRequest{FileId: uploadedFileId, Version: initialVersionNumber})
 		if err != nil {
 			log.Fatalf("Ошибка при откате файла: %v", err)
@@ -308,6 +334,7 @@ func main() {
 				log.Fatalf("Не удалось сохранить скачанный откаченный файл: %v", err)
 			}
 			log.Printf("Откаченный файл %s успешно скачан и сохранен как %s. Размер: %d байт", newFileName, revertedFileName, len(revertedData))
+			fmt.Printf("Откаченный файл %s успешно скачан и сохранен как %s. Размер: %d байт\n", newFileName, revertedFileName, len(revertedData))
 			defer os.Remove(revertedFileName)
 		}
 	}
@@ -332,5 +359,5 @@ func main() {
 		}
 	*/
 
-	log.Println("Тестовый клиент завершил работу.")
+	fmt.Println("Работа клиента завершена.")
 }

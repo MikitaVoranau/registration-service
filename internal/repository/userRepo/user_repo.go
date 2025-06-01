@@ -16,13 +16,14 @@ func New(conn *pgx.Conn) *UserRepo {
 	return &UserRepo{conn: conn}
 }
 
-func (r *UserRepo) Create(ctx context.Context, username, email, passwordHash string) error {
-	query := `INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3)`
-	_, err := r.conn.Exec(ctx, query, username, email, passwordHash)
+func (r *UserRepo) Create(ctx context.Context, username, email, passwordHash string) (uint32, error) {
+	query := `INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id`
+	var userID uint32
+	err := r.conn.QueryRow(ctx, query, username, email, passwordHash).Scan(&userID)
 	if err != nil {
-		return fmt.Errorf("failed to insert user: %w", err)
+		return 0, fmt.Errorf("failed to insert user and retrieve id: %w", err)
 	}
-	return nil
+	return userID, nil
 }
 
 func (r *UserRepo) GetByID(ctx context.Context, id uint32) (*user.User, error) {

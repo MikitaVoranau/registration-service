@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 	"regexp"
 	"registration-service/internal/model/user"
 	"registration-service/internal/repository/BlackListRepo"
@@ -14,6 +11,10 @@ import (
 	"registration-service/internal/repository/userRepo"
 	"strconv"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Сделал регулярку для проверки почты на валидность
@@ -35,36 +36,40 @@ func New(userRepo *userRepo.UserRepo, jwtString string, tokenRepo *refreshToken.
 	return &AuthService{userRepo: userRepo, jwtSecretKey: jwtString, refreshRepo: tokenRepo, blacklistRepo: blacklistrepo}
 }
 
-func (s *AuthService) Register(ctx context.Context, username, email, password string) error {
+func (s *AuthService) Register(ctx context.Context, username, email, password string) (uint32, error) {
 	if username == "" || email == "" || password == "" {
-		return fmt.Errorf("invalid format")
+		return 0, fmt.Errorf("invalid format")
 	}
 
 	if !emailRegex.MatchString(email) {
-		return fmt.Errorf("invalid email format")
+		return 0, fmt.Errorf("invalid email format")
 	}
 
 	if existingUser, err := s.userRepo.GetUserByEmail(ctx, email); err == nil && existingUser != nil {
-		return fmt.Errorf("email already exists")
+		return 0, fmt.Errorf("email already exists")
 	}
 
 	usersWithSameUsername, _ := s.userRepo.GetByUsername(ctx, username)
 	if len(usersWithSameUsername) > 0 {
-		return fmt.Errorf("username already taken")
+		return 0, fmt.Errorf("username already taken")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return fmt.Errorf("failed to hash password: %w", err)
+		return 0, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	return s.userRepo.Create(ctx, username, email, string(hashedPassword))
+	userID, err := s.userRepo.Create(ctx, username, email, string(hashedPassword))
+	if err != nil {
+		return 0, fmt.Errorf("failed to create user: %w", err)
+	}
+	return userID, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, username, password string) (string, string, error) {
+func (s *AuthService) Login(ctx context.Context, username, password string) (string, string, uint32, error) {
 	users, err := s.userRepo.GetByUsername(ctx, username)
 	if err != nil || users == nil {
-		return "", "", errors.New("user not found")
+		return "", "", 0, errors.New("user not found")
 	}
 
 	var matchedUser *user.User
@@ -76,20 +81,20 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 	}
 
 	if matchedUser == nil {
-		return "", "", errors.New("invalid credentials")
+		return "", "", 0, errors.New("invalid credentials")
 	}
 
 	accessToken, err := s.generateJWT(matchedUser)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate access token: %w", err)
+		return "", "", 0, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
 	refreshToken, err := s.generateRefreshToken(ctx, uint32(matchedUser.ID))
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate refresh token: %w", err)
+		return "", "", 0, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	return accessToken, refreshToken, nil
+	return accessToken, refreshToken, uint32(matchedUser.ID), nil
 }
 
 func (s *AuthService) generateJWT(user *user.User) (string, error) {
