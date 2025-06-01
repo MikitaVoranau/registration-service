@@ -17,7 +17,7 @@ services:
       - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U users"]
-      interval: 5s
+      interval: 30s
       timeout: 5s
       retries: 5
     restart: unless-stopped
@@ -110,24 +110,6 @@ services:
       minio-init:
         condition: service_completed_successfully
       auth-service:
-        condition: service_started
-
-  gateway:
-    build:
-      context: .
-      dockerfile: gateway/Dockerfile
-    env_file:
-      - .env
-    environment:
-      PORT: ${PORT}
-      AUTH_SERVICE_ADDR: "auth-service:${GRPC_AUTH_PORT}"
-      FILE_SERVICE_ADDR: "file-service:${GRPC_FILE_PORT}"
-    ports:
-      - "${PORT}:${PORT}"
-    depends_on:
-      auth-service:
-        condition: service_started
-      file-service:
         condition: service_started
 
 volumes:

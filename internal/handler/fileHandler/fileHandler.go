@@ -3,13 +3,15 @@ package fileHandler
 import (
 	"bytes"
 	"context"
+	"io"
+	"log"
+	fileproto "registration-service/api/fileproto/proto-generate"
+	"registration-service/internal/model/fileInfo"
+	"registration-service/internal/service/fileService"
+
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"io"
-	"registration-service/api/fileproto/proto-generate"
-	"registration-service/internal/model/fileInfo"
-	"registration-service/internal/service/fileService"
 )
 
 type FileHandler struct {
@@ -84,34 +86,42 @@ func (h *FileHandler) DownloadFile(req *fileproto.DownloadFileRequest, stream fi
 }
 
 func (h *FileHandler) ListFiles(ctx context.Context, req *fileproto.ListFilesRequest) (*fileproto.ListFilesResponse, error) {
+	log.Printf("[fileHandler.ListFiles] Attempting to list files. IncludeShared: %v", req.IncludeShared)
 	userID, ok := ctx.Value("userID").(uint32)
 	if !ok {
+		log.Printf("[fileHandler.ListFiles] ERROR: userID not found in context")
 		return nil, status.Error(codes.Unauthenticated, "authentication required")
 	}
+	log.Printf("[fileHandler.ListFiles] UserID %d retrieved from context", userID)
 
 	files, err := h.fileService.ListFiles(ctx, req.IncludeShared)
 	if err != nil {
+		log.Printf("[fileHandler.ListFiles] ERROR calling h.fileService.ListFiles: %v", err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+	log.Printf("[fileHandler.ListFiles] h.fileService.ListFiles returned %d files", len(files))
 
 	var fileInfos []*fileproto.FileInfo
-	for _, file := range files {
+	for i, file := range files {
+		log.Printf("[fileHandler.ListFiles] Processing file %d / %d, ID: %s", i+1, len(files), file.ID.String())
 		fileInfo, fileVers, err := h.fileService.GetFileWithVersion(ctx, file.ID)
 		if err != nil {
+			log.Printf("[fileHandler.ListFiles] ERROR calling h.fileService.GetFileWithVersion for file ID %s: %v", file.ID.String(), err)
 			return nil, status.Error(codes.Internal, err.Error())
 		}
+		log.Printf("[fileHandler.ListFiles] Successfully processed file ID %s. Name: %s, Version: %d", file.ID.String(), fileInfo.Name, fileVers.VersionNumber)
 
 		fileInfos = append(fileInfos, &fileproto.FileInfo{
 			FileId:    file.ID.String(),
-			Name:      file.Name,
+			Name:      fileInfo.Name,
 			Size:      fileVers.Size,
-			Version:   uint32(file.CurrentVersion),
+			Version:   fileVers.VersionNumber,
 			CreatedAt: file.CreatedAt.Unix(),
 			UpdatedAt: fileInfo.CreatedAt.Unix(),
 			IsOwner:   file.OwnerID == userID,
 		})
 	}
-
+	log.Printf("[fileHandler.ListFiles] Successfully prepared %d FileInfo objects for response", len(fileInfos))
 	return &fileproto.ListFilesResponse{Files: fileInfos}, nil
 }
 

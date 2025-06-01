@@ -77,18 +77,25 @@ func New(cfg Config) (*MinIOClient, error) {
 	}, nil
 }
 
-func (m *MinIOClient) UploadFile(ctx context.Context, key string, reader io.Reader, size int64) error {
-	// Определяем Content-Type на основе расширения файла
-	contentType := "application/octet-stream"
-	if ext := strings.ToLower(filepath.Ext(key)); ext != "" {
-		if mimeType := mime.TypeByExtension(ext); mimeType != "" {
-			contentType = mimeType
+func (m *MinIOClient) UploadFile(ctx context.Context, key string, reader io.Reader, size int64, fileContentType string) error {
+	// Используем предоставленный fileContentType; если он пустой, можно определить по расширению ключа или использовать application/octet-stream
+	contentTypeToUse := fileContentType
+	if contentTypeToUse == "" {
+		// Опционально: попытаться определить по расширению ключа, если fileContentType пуст
+		if ext := strings.ToLower(filepath.Ext(key)); ext != "" {
+			if mimeType := mime.TypeByExtension(ext); mimeType != "" {
+				contentTypeToUse = mimeType
+			}
+		}
+		// Если все еще пустой, используем application/octet-stream
+		if contentTypeToUse == "" {
+			contentTypeToUse = "application/octet-stream"
 		}
 	}
 
 	// Загружаем файл с указанным Content-Type
 	_, err := m.Client.PutObject(ctx, m.Bucket, key, reader, size, minio.PutObjectOptions{
-		ContentType: contentType,
+		ContentType: contentTypeToUse,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to upload file: %v", err)

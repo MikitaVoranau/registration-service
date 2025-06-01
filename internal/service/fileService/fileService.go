@@ -12,8 +12,9 @@ import (
 	"strconv"
 	"time"
 
+	"log"
+
 	"github.com/google/uuid"
-	"google.golang.org/grpc/metadata"
 )
 
 type FileService struct {
@@ -34,25 +35,30 @@ func New(fileRepo *fileRepo.FileRepository, authClient auth.AuthServiceClient, m
 // rpc GetFileVersions(GetFileVersionsRequest) returns (GetFileVersionsResponse);
 // rpc RevertFileVersion(RevertFileRequest) returns (RevertFileResponse);
 func getUserIDFromContext(ctx context.Context) (uint32, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
+	userIDVal := ctx.Value("userID")
+	if userIDVal == nil {
+		return 0, errors.New("userID not found in context")
+	}
+	userID, ok := userIDVal.(uint32)
 	if !ok {
-		return 0, errors.New("no metadata in context")
+		if userIDStr, strOk := userIDVal.(string); strOk {
+			parsedID, err := strconv.ParseUint(userIDStr, 10, 32)
+			if err == nil {
+				return uint32(parsedID), nil
+			}
+		}
+		return 0, errors.New("userID in context is not of type uint32 or valid string representation")
 	}
-
-	userIDs := md.Get("user_id")
-	if len(userIDs) == 0 {
-		return 0, errors.New("no user_id in metadata")
-	}
-
-	userID, err := strconv.ParseUint(userIDs[0], 10, 32)
-	if err != nil {
-		return 0, fmt.Errorf("invalid user_id: %v", err)
-	}
-
-	return uint32(userID), nil
+	return userID, nil
 }
 
 func (s *FileService) UploadFile(ctx context.Context, name string, content_type string, fileData io.Reader, size int64) (*fileInfo.File, error) {
+	if userIDVal := ctx.Value("userID"); userIDVal != nil {
+		log.Printf("[FileService.UploadFile] Received context. userID found. Value: %v, Type: %T", userIDVal, userIDVal)
+	} else {
+		log.Printf("[FileService.UploadFile] Received context. ERROR: userID NOT FOUND with key 'userID'!")
+	}
+
 	userID, err := getUserIDFromContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user ID: %v", err)
@@ -61,7 +67,7 @@ func (s *FileService) UploadFile(ctx context.Context, name string, content_type 
 	fileID := uuid.New()
 	version := 1
 	storageKey := fmt.Sprintf("%s/v%d", fileID, version)
-	if err := s.minIO.UploadFile(ctx, storageKey, fileData, size); err != nil {
+	if err := s.minIO.UploadFile(ctx, storageKey, fileData, size, content_type); err != nil {
 		return nil, errors.New("upload file to minio error")
 	}
 	file := &fileInfo.File{
@@ -73,9 +79,22 @@ func (s *FileService) UploadFile(ctx context.Context, name string, content_type 
 	}
 	if err := s.fileRepo.CreateFile(ctx, file); err != nil {
 		_ = s.minIO.DeleteFile(ctx, storageKey)
-		_ = s.fileRepo.DeleteFile(ctx, fileID)
-		return nil, errors.New("create file error")
+		return nil, fmt.Errorf("create file entry error: %w", err)
 	}
+
+	initialFileVersion := &fileInfo.FileVersion{
+		FileID:        fileID,
+		VersionNumber: uint32(version),
+		StorageKey:    storageKey,
+		Size:          size,
+		CreatedAt:     time.Now(),
+	}
+	if err := s.fileRepo.CreateFileVersion(ctx, initialFileVersion); err != nil {
+		_ = s.minIO.DeleteFile(ctx, storageKey)
+		_ = s.fileRepo.DeleteFile(ctx, fileID)
+		return nil, fmt.Errorf("failed to create initial file version: %w", err)
+	}
+
 	return file, nil
 }
 
@@ -95,14 +114,14 @@ func (s *FileService) DownloadFile(ctx context.Context, fileID uuid.UUID) (io.Re
 	if err != nil || !hasAccess {
 		return nil, nil, errors.New("access denied")
 	}
-	version, err := s.fileRepo.GetLatestFileVersion(ctx, fileID)
+	versionNum, err := s.fileRepo.GetLatestFileVersion(ctx, fileID)
 	if err != nil {
 		return nil, nil, errors.New("get latest file version error")
 	}
-	if version == nil {
+	if versionNum == nil {
 		return nil, nil, errors.New("file version not found")
 	}
-	reader, err := s.minIO.DownloadFile(ctx, version.StorageKey)
+	reader, err := s.minIO.DownloadFile(ctx, versionNum.StorageKey)
 	if err != nil {
 		return nil, nil, errors.New("download file to minio error")
 	}
@@ -131,8 +150,8 @@ func (s *FileService) DeleteFile(ctx context.Context, fileID uuid.UUID) error {
 	if err := s.fileRepo.DeleteFile(ctx, fileID); err != nil {
 		return fmt.Errorf("failed to delete file: %w", err)
 	}
-	for _, version := range versions {
-		if err := s.minIO.DeleteFile(ctx, version.StorageKey); err != nil {
+	for _, versionToDelete := range versions {
+		if err := s.minIO.DeleteFile(ctx, versionToDelete.StorageKey); err != nil {
 			return fmt.Errorf("failed to delete file: %w", err)
 		}
 	}
@@ -250,7 +269,6 @@ func (s *FileService) GetFileVersions(ctx context.Context, fileID uuid.UUID) ([]
 		return nil, fmt.Errorf("failed to get file versions: %w", err)
 	}
 	return versions, nil
-
 }
 
 func (s *FileService) RevertFileVersion(ctx context.Context, fileID uuid.UUID, versionNum int) (*fileInfo.File, error) {
@@ -275,29 +293,25 @@ func (s *FileService) RevertFileVersion(ctx context.Context, fileID uuid.UUID, v
 	if oldVersion == nil {
 		return nil, errors.New("file version not found")
 	}
-	newFileID := uuid.New()
-	newVersion := versionNum + 1
+	newVersion := file.CurrentVersion + 1
 	newStorageKey := fmt.Sprintf("%s/v%d", fileID, newVersion)
-	reader, err := s.minIO.DownloadFile(ctx, newStorageKey)
+
+	reader, err := s.minIO.DownloadFile(ctx, oldVersion.StorageKey)
 	if err != nil {
 		return nil, fmt.Errorf("download file to minio error: %w", err)
 	}
-	if err := s.minIO.UploadFile(ctx, newStorageKey, reader, oldVersion.Size); err != nil {
+	if err := s.minIO.UploadFile(ctx, newStorageKey, reader, oldVersion.Size, ""); err != nil {
 		return nil, fmt.Errorf("upload file to minio error: %w", err)
 	}
-	newFile := &fileInfo.File{
-		ID:             newFileID,
-		OwnerID:        userID,
-		Name:           file.Name,
-		CurrentVersion: newVersion,
-		CreatedAt:      time.Now(),
-	}
-	if err := s.fileRepo.CreateFile(ctx, newFile); err != nil {
+
+	file.CurrentVersion = newVersion
+	if err := s.fileRepo.UpdateCurrentVersion(ctx, file.ID, file.CurrentVersion); err != nil {
 		_ = s.minIO.DeleteFile(ctx, newStorageKey)
-		return nil, fmt.Errorf("failed to create new file record: %w", err)
+		return nil, fmt.Errorf("failed to update file record: %w", err)
 	}
+
 	newFileVers := &fileInfo.FileVersion{
-		FileID:        newFileID,
+		FileID:        fileID,
 		VersionNumber: uint32(newVersion),
 		StorageKey:    newStorageKey,
 		Size:          oldVersion.Size,
@@ -305,14 +319,13 @@ func (s *FileService) RevertFileVersion(ctx context.Context, fileID uuid.UUID, v
 	}
 	if err := s.fileRepo.CreateFileVersion(ctx, newFileVers); err != nil {
 		_ = s.minIO.DeleteFile(ctx, newStorageKey)
-		_ = s.fileRepo.DeleteFile(ctx, newFileID)
 		return nil, fmt.Errorf("failed to create new file version: %w", err)
 	}
-	return newFile, nil
+	return file, nil
 }
 
-func (s *FileService) checkFileAccess(ctx context.Context, uuid uuid.UUID, userID int) (bool, error) {
-	file, err := s.fileRepo.GetFileByID(ctx, uuid)
+func (s *FileService) checkFileAccess(ctx context.Context, fileID uuid.UUID, userID int) (bool, error) {
+	file, err := s.fileRepo.GetFileByID(ctx, fileID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get file: %w", err)
 	}
@@ -322,12 +335,13 @@ func (s *FileService) checkFileAccess(ctx context.Context, uuid uuid.UUID, userI
 	if file.OwnerID == uint32(userID) {
 		return true, nil
 	}
-	permision, err := s.fileRepo.CheckUserPermission(ctx, uuid, userID)
+	permission, err := s.fileRepo.CheckUserPermission(ctx, fileID, userID)
 	if err != nil {
 		return false, fmt.Errorf("failed to check user permissions: %w", err)
 	}
-	return permision > 0, nil
+	return permission > 0, nil
 }
+
 func (s *FileService) GetFileWithVersion(ctx context.Context, fileID uuid.UUID) (*fileInfo.File, *fileInfo.FileVersion, error) {
 	file, err := s.fileRepo.GetFileByID(ctx, fileID)
 	if err != nil {
@@ -340,6 +354,10 @@ func (s *FileService) GetFileWithVersion(ctx context.Context, fileID uuid.UUID) 
 	version, err := s.fileRepo.GetLatestFileVersion(ctx, fileID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get file version: %w", err)
+	}
+
+	if version == nil {
+		return nil, nil, fmt.Errorf("latest file version not found for file ID %s", fileID.String())
 	}
 
 	return file, version, nil

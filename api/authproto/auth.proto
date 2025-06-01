@@ -20,6 +20,7 @@ message RegisterRequest {
 
 message RegisterResponse {
   string message = 1;
+  uint32 user_id = 2;
 }
 
 message LoginRequest {
@@ -30,6 +31,7 @@ message LoginRequest {
 message LoginResponse {
   string token = 1;
   string refreshToken = 2;
+  uint32 user_id = 3;
 }
 
 message GetUIDByTokenRequest {

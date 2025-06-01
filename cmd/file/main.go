@@ -73,7 +73,8 @@ func main() {
 	)
 
 	server := grpc.NewServer(
-		grpc.UnaryInterceptor(middleware.AuthInterceptor(authClient)),
+		grpc.ChainUnaryInterceptor(middleware.AuthInterceptor(authClient)),
+		grpc.ChainStreamInterceptor(middleware.StreamAuthInterceptor(authClient)),
 	)
 	fileproto.RegisterFileServiceServer(server, fileHandler.NewFileHandler(fileSvc))
 

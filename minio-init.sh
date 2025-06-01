@@ -43,4 +43,4 @@ mc admin user add myminio "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" || true
 # Assign the policy to the service user
 mc admin policy attach myminio service-policy --user "$MINIO_ACCESS_KEY"
 
-echo "MinIO initialization completed successfully!" 
+echo "MinIO initialization completed successfully!"
