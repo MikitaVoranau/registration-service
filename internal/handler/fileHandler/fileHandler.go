@@ -67,21 +67,32 @@ func (h *FileHandler) DownloadFile(req *fileproto.DownloadFileRequest, stream fi
 	}
 	defer reader.(io.Closer).Close()
 	buf := make([]byte, 1024*32)
+	log.Printf("[FileHandler.DownloadFile] ENTERING DOWNLOAD STREAM for file ID: %s", req.FileId)
 	for {
-		n, err := reader.Read(buf)
-		if err == io.EOF {
+		n, errRead := reader.Read(buf)
+		log.Printf("[FileHandler.DownloadFile] IO_READ: n=%d, read_err=%v, file_id=%s", n, errRead, req.FileId)
+
+		if n > 0 {
+			log.Printf("[FileHandler.DownloadFile] SEND_CHUNK: size=%d, file_id=%s", n, req.FileId)
+			if sendErr := stream.Send(&fileproto.DownloadFileResponse{
+				Chunk: buf[:n],
+			}); sendErr != nil {
+				log.Printf("[FileHandler.DownloadFile] SEND_ERROR: err=%v, file_id=%s", sendErr, req.FileId)
+				return status.Error(codes.Internal, sendErr.Error())
+			}
+		}
+
+		if errRead == io.EOF {
+			log.Printf("[FileHandler.DownloadFile] EOF_REACHED: file_id=%s", req.FileId)
 			break
 		}
-		if err != nil {
-			return status.Error(codes.Internal, err.Error())
-		}
-		if err = stream.Send(&fileproto.DownloadFileResponse{
-			Chunk: buf[:n],
-		}); err != nil {
-			return status.Error(codes.Internal, err.Error())
 
+		if errRead != nil {
+			log.Printf("[FileHandler.DownloadFile] READ_ERROR: err=%v, file_id=%s", errRead, req.FileId)
+			return status.Error(codes.Internal, errRead.Error())
 		}
 	}
+	log.Printf("[FileHandler.DownloadFile] EXITING DOWNLOAD STREAM for file ID: %s", req.FileId)
 	return nil
 }
 

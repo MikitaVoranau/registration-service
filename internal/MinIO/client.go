@@ -108,6 +108,12 @@ func (m *MinIOClient) DownloadFile(ctx context.Context, key string) (io.Reader, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to download file: %v", err)
 	}
+	objInfo, err := obj.Stat()
+	if err != nil {
+		fmt.Printf("[MinIOClient.DownloadFile] WARN: Failed to get Stat for object %s: %v\n", key, err)
+	} else {
+		fmt.Printf("[MinIOClient.DownloadFile] DEBUG: Got object %s, Stat: Size=%d, ContentType=%s, ETag=%s\n", key, objInfo.Size, objInfo.ContentType, objInfo.ETag)
+	}
 	return obj, nil
 }
 

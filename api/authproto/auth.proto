@@ -10,6 +10,7 @@ service AuthService {
   rpc GetUIDByToken(GetUIDByTokenRequest) returns (GetUIDByTokenResponse);
   rpc Logout(LogoutRequest) returns (LogoutResponse);
   rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc GetUserIdByEmail(GetUserIdByEmailRequest) returns (GetUserIdByEmailResponse);
 }
 
 message RegisterRequest {
@@ -61,3 +62,19 @@ message RefreshTokenResponse {
   string token = 1;
 }
 
+message GetUserIdByEmailRequest {
+  string email = 1;
+}
+
+message GetUserIdByEmailResponse {
+  uint32 user_id = 1;
+}
+
+// или для Username
+message GetUserIdByUsernameRequest {
+  string username = 1;
+}
+
+message GetUserIdByUsernameResponse {
+  uint32 user_id = 1;
+}

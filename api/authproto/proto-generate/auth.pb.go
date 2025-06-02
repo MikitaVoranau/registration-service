@@ -533,6 +533,183 @@ func (x *RefreshTokenResponse) GetToken() string {
 	return ""
 }
 
+type GetUserIdByEmailRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserIdByEmailRequest) Reset() {
+	*x = GetUserIdByEmailRequest{}
+	mi := &file_auth_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserIdByEmailRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserIdByEmailRequest) ProtoMessage() {}
+
+func (x *GetUserIdByEmailRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserIdByEmailRequest.ProtoReflect.Descriptor instead.
+func (*GetUserIdByEmailRequest) Descriptor() ([]byte, []int) {
+	return file_auth_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetUserIdByEmailRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+type GetUserIdByEmailResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserIdByEmailResponse) Reset() {
+	*x = GetUserIdByEmailResponse{}
+	mi := &file_auth_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserIdByEmailResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserIdByEmailResponse) ProtoMessage() {}
+
+func (x *GetUserIdByEmailResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserIdByEmailResponse.ProtoReflect.Descriptor instead.
+func (*GetUserIdByEmailResponse) Descriptor() ([]byte, []int) {
+	return file_auth_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *GetUserIdByEmailResponse) GetUserId() uint32 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+// или для Username
+type GetUserIdByUsernameRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserIdByUsernameRequest) Reset() {
+	*x = GetUserIdByUsernameRequest{}
+	mi := &file_auth_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserIdByUsernameRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserIdByUsernameRequest) ProtoMessage() {}
+
+func (x *GetUserIdByUsernameRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserIdByUsernameRequest.ProtoReflect.Descriptor instead.
+func (*GetUserIdByUsernameRequest) Descriptor() ([]byte, []int) {
+	return file_auth_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *GetUserIdByUsernameRequest) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+type GetUserIdByUsernameResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserIdByUsernameResponse) Reset() {
+	*x = GetUserIdByUsernameResponse{}
+	mi := &file_auth_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserIdByUsernameResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserIdByUsernameResponse) ProtoMessage() {}
+
+func (x *GetUserIdByUsernameResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserIdByUsernameResponse.ProtoReflect.Descriptor instead.
+func (*GetUserIdByUsernameResponse) Descriptor() ([]byte, []int) {
+	return file_auth_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetUserIdByUsernameResponse) GetUserId() uint32 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
 var File_auth_proto protoreflect.FileDescriptor
 
 const file_auth_proto_rawDesc = "" +
@@ -567,13 +744,22 @@ const file_auth_proto_rawDesc = "" +
 	"\x06userID\x18\x01 \x01(\rR\x06userID\x12\"\n" +
 	"\frefreshToken\x18\x02 \x01(\tR\frefreshToken\",\n" +
 	"\x14RefreshTokenResponse\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token2\xc0\x02\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"/\n" +
+	"\x17GetUserIdByEmailRequest\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\"3\n" +
+	"\x18GetUserIdByEmailResponse\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\rR\x06userId\"8\n" +
+	"\x1aGetUserIdByUsernameRequest\x12\x1a\n" +
+	"\busername\x18\x01 \x01(\tR\busername\"6\n" +
+	"\x1bGetUserIdByUsernameResponse\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\rR\x06userId2\x93\x03\n" +
 	"\vAuthService\x120\n" +
 	"\x05Login\x12\x12.auth.LoginRequest\x1a\x13.auth.LoginResponse\x129\n" +
 	"\bRegister\x12\x15.auth.RegisterRequest\x1a\x16.auth.RegisterResponse\x12H\n" +
 	"\rGetUIDByToken\x12\x1a.auth.GetUIDByTokenRequest\x1a\x1b.auth.GetUIDByTokenResponse\x123\n" +
 	"\x06Logout\x12\x13.auth.LogoutRequest\x1a\x14.auth.LogoutResponse\x12E\n" +
-	"\fRefreshToken\x12\x19.auth.RefreshTokenRequest\x1a\x1a.auth.RefreshTokenResponseB8Z6registration-service/api/authproto/proto-generate;authb\x06proto3"
+	"\fRefreshToken\x12\x19.auth.RefreshTokenRequest\x1a\x1a.auth.RefreshTokenResponse\x12Q\n" +
+	"\x10GetUserIdByEmail\x12\x1d.auth.GetUserIdByEmailRequest\x1a\x1e.auth.GetUserIdByEmailResponseB\x17Z\x15./proto-generate;authb\x06proto3"
 
 var (
 	file_auth_proto_rawDescOnce sync.Once
@@ -587,35 +773,41 @@ func file_auth_proto_rawDescGZIP() []byte {
 	return file_auth_proto_rawDescData
 }
 
-var file_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_auth_proto_goTypes = []any{
-	(*RegisterRequest)(nil),       // 0: auth.RegisterRequest
-	(*RegisterResponse)(nil),      // 1: auth.RegisterResponse
-	(*LoginRequest)(nil),          // 2: auth.LoginRequest
-	(*LoginResponse)(nil),         // 3: auth.LoginResponse
-	(*GetUIDByTokenRequest)(nil),  // 4: auth.GetUIDByTokenRequest
-	(*GetUIDByTokenResponse)(nil), // 5: auth.GetUIDByTokenResponse
-	(*LogoutRequest)(nil),         // 6: auth.LogoutRequest
-	(*LogoutResponse)(nil),        // 7: auth.LogoutResponse
-	(*RefreshTokenRequest)(nil),   // 8: auth.RefreshTokenRequest
-	(*RefreshTokenResponse)(nil),  // 9: auth.RefreshTokenResponse
+	(*RegisterRequest)(nil),             // 0: auth.RegisterRequest
+	(*RegisterResponse)(nil),            // 1: auth.RegisterResponse
+	(*LoginRequest)(nil),                // 2: auth.LoginRequest
+	(*LoginResponse)(nil),               // 3: auth.LoginResponse
+	(*GetUIDByTokenRequest)(nil),        // 4: auth.GetUIDByTokenRequest
+	(*GetUIDByTokenResponse)(nil),       // 5: auth.GetUIDByTokenResponse
+	(*LogoutRequest)(nil),               // 6: auth.LogoutRequest
+	(*LogoutResponse)(nil),              // 7: auth.LogoutResponse
+	(*RefreshTokenRequest)(nil),         // 8: auth.RefreshTokenRequest
+	(*RefreshTokenResponse)(nil),        // 9: auth.RefreshTokenResponse
+	(*GetUserIdByEmailRequest)(nil),     // 10: auth.GetUserIdByEmailRequest
+	(*GetUserIdByEmailResponse)(nil),    // 11: auth.GetUserIdByEmailResponse
+	(*GetUserIdByUsernameRequest)(nil),  // 12: auth.GetUserIdByUsernameRequest
+	(*GetUserIdByUsernameResponse)(nil), // 13: auth.GetUserIdByUsernameResponse
 }
 var file_auth_proto_depIdxs = []int32{
-	2, // 0: auth.AuthService.Login:input_type -> auth.LoginRequest
-	0, // 1: auth.AuthService.Register:input_type -> auth.RegisterRequest
-	4, // 2: auth.AuthService.GetUIDByToken:input_type -> auth.GetUIDByTokenRequest
-	6, // 3: auth.AuthService.Logout:input_type -> auth.LogoutRequest
-	8, // 4: auth.AuthService.RefreshToken:input_type -> auth.RefreshTokenRequest
-	3, // 5: auth.AuthService.Login:output_type -> auth.LoginResponse
-	1, // 6: auth.AuthService.Register:output_type -> auth.RegisterResponse
-	5, // 7: auth.AuthService.GetUIDByToken:output_type -> auth.GetUIDByTokenResponse
-	7, // 8: auth.AuthService.Logout:output_type -> auth.LogoutResponse
-	9, // 9: auth.AuthService.RefreshToken:output_type -> auth.RefreshTokenResponse
-	5, // [5:10] is the sub-list for method output_type
-	0, // [0:5] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	2,  // 0: auth.AuthService.Login:input_type -> auth.LoginRequest
+	0,  // 1: auth.AuthService.Register:input_type -> auth.RegisterRequest
+	4,  // 2: auth.AuthService.GetUIDByToken:input_type -> auth.GetUIDByTokenRequest
+	6,  // 3: auth.AuthService.Logout:input_type -> auth.LogoutRequest
+	8,  // 4: auth.AuthService.RefreshToken:input_type -> auth.RefreshTokenRequest
+	10, // 5: auth.AuthService.GetUserIdByEmail:input_type -> auth.GetUserIdByEmailRequest
+	3,  // 6: auth.AuthService.Login:output_type -> auth.LoginResponse
+	1,  // 7: auth.AuthService.Register:output_type -> auth.RegisterResponse
+	5,  // 8: auth.AuthService.GetUIDByToken:output_type -> auth.GetUIDByTokenResponse
+	7,  // 9: auth.AuthService.Logout:output_type -> auth.LogoutResponse
+	9,  // 10: auth.AuthService.RefreshToken:output_type -> auth.RefreshTokenResponse
+	11, // 11: auth.AuthService.GetUserIdByEmail:output_type -> auth.GetUserIdByEmailResponse
+	6,  // [6:12] is the sub-list for method output_type
+	0,  // [0:6] is the sub-list for method input_type
+	0,  // [0:0] is the sub-list for extension type_name
+	0,  // [0:0] is the sub-list for extension extendee
+	0,  // [0:0] is the sub-list for field type_name
 }
 
 func init() { file_auth_proto_init() }
@@ -629,7 +821,7 @@ func file_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auth_proto_rawDesc), len(file_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

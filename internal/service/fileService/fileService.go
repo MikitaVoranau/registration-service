@@ -15,6 +15,14 @@ import (
 	"log"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+)
+
+const (
+	PermissionRead = 1
+	// Add other permission types as needed, matching client and proto definitions
+	// PermissionWrite = 2
+	// PermissionDelete = 3
 )
 
 type FileService struct {
@@ -110,9 +118,9 @@ func (s *FileService) DownloadFile(ctx context.Context, fileID uuid.UUID) (io.Re
 	if file == nil {
 		return nil, nil, errors.New("file not found")
 	}
-	hasAccess, err := s.checkFileAccess(ctx, fileID, int(userID))
+	hasAccess, err := s.checkFileAccess(ctx, fileID, int(userID), PermissionRead)
 	if err != nil || !hasAccess {
-		return nil, nil, errors.New("access denied")
+		return nil, nil, fmt.Errorf("access denied or error checking access: %w", err)
 	}
 	versionNum, err := s.fileRepo.GetLatestFileVersion(ctx, fileID)
 	if err != nil {
@@ -185,9 +193,9 @@ func (s *FileService) GetFileInfo(ctx context.Context, fileID uuid.UUID) (*fileI
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get user ID: %v", err)
 	}
-	hasAccess, err := s.checkFileAccess(ctx, fileID, int(userID))
+	hasAccess, err := s.checkFileAccess(ctx, fileID, int(userID), PermissionRead)
 	if err != nil || !hasAccess {
-		return nil, nil, errors.New("access denied")
+		return nil, nil, fmt.Errorf("access denied or error checking access: %w", err)
 	}
 	file, err := s.fileRepo.GetFileByID(ctx, fileID)
 	if err != nil {
@@ -260,9 +268,9 @@ func (s *FileService) GetFileVersions(ctx context.Context, fileID uuid.UUID) ([]
 	if file == nil {
 		return nil, errors.New("file not found")
 	}
-	hasAccess, err := s.checkFileAccess(ctx, fileID, int(usersID))
+	hasAccess, err := s.checkFileAccess(ctx, fileID, int(usersID), PermissionRead)
 	if err != nil || !hasAccess {
-		return nil, errors.New("access denied")
+		return nil, fmt.Errorf("access denied or error checking access: %w", err)
 	}
 	versions, err := s.fileRepo.GetFileVersions(ctx, fileID)
 	if err != nil {
@@ -324,7 +332,7 @@ func (s *FileService) RevertFileVersion(ctx context.Context, fileID uuid.UUID, v
 	return file, nil
 }
 
-func (s *FileService) checkFileAccess(ctx context.Context, fileID uuid.UUID, userID int) (bool, error) {
+func (s *FileService) checkFileAccess(ctx context.Context, fileID uuid.UUID, userID int, requiredPermission int) (bool, error) {
 	file, err := s.fileRepo.GetFileByID(ctx, fileID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get file: %w", err)
@@ -335,11 +343,17 @@ func (s *FileService) checkFileAccess(ctx context.Context, fileID uuid.UUID, use
 	if file.OwnerID == uint32(userID) {
 		return true, nil
 	}
-	permission, err := s.fileRepo.CheckUserPermission(ctx, fileID, userID)
+	storedPermission, err := s.fileRepo.CheckUserPermission(ctx, fileID, userID)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
 		return false, fmt.Errorf("failed to check user permissions: %w", err)
 	}
-	return permission > 0, nil
+	if storedPermission == requiredPermission {
+		return true, nil
+	}
+	return false, nil
 }
 
 func (s *FileService) GetFileWithVersion(ctx context.Context, fileID uuid.UUID) (*fileInfo.File, *fileInfo.FileVersion, error) {

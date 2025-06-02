@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -12,8 +13,10 @@ import (
 	fileproto "registration-service/api/fileproto/proto-generate"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -87,71 +90,27 @@ func main() {
 	// --- Загрузка файла (пример) ---
 	log.Println("Попытка загрузки файла...")
 	fmt.Println("Попытка загрузки файла...")
-	// Создадим простой текстовый файл для загрузки
-	dummyFileName := "test_upload.txt"
-	dummyContent := []byte("Это тестовое содержимое файла для загрузки.")
-	err = os.WriteFile(dummyFileName, dummyContent, 0644)
-	if err != nil {
-		log.Fatalf("Не удалось создать временный файл: %v", err)
-	}
-	defer os.Remove(dummyFileName) // Удаляем временный файл после
 
-	stream, err := fileClient.UploadFile(fileCtxTimeout)
-	if err != nil {
-		log.Fatalf("Не удалось открыть стрим для UploadFile: %v", err)
-	}
+	// Имя файла на сервере и путь к локальному файлу
+	fileNameForServer := "uploaded_sample.txt"
+	localFilePath := "sample.txt" // Убедитесь, что этот файл существует
 
-	// Сначала отправляем метаданные
-	fmt.Println("Отправка метаданных файла...")
-	err = stream.Send(&fileproto.UploadFileRequest{
-		Data: &fileproto.UploadFileRequest_Metadata{
-			Metadata: &fileproto.FileMetadata{
-				Name:        dummyFileName,
-				ContentType: "text/plain",
-			},
-		},
-	})
-	if err != nil {
-		log.Fatalf("Не удалось отправить метаданные файла: %v. Ошибка стрима: %v", err, stream.RecvMsg(nil))
-	}
-	fmt.Println("Метаданные файла успешно отправлены.")
-
-	// Затем отправляем содержимое файла по частям (чанками)
-	fmt.Println("Отправка чанков файла...")
-	chunkSize := 1024 // 1KB
-	buffer := make([]byte, chunkSize)
-	file, err := os.Open(dummyFileName)
-	if err != nil {
-		log.Fatalf("Не удалось открыть файл для чтения: %v", err)
-	}
-	defer file.Close()
-
-	for {
-		n, err := file.Read(buffer)
-		if err == io.EOF {
-			break
-		}
+	// Создадим sample.txt если он не существует для демонстрации
+	if _, err := os.Stat(localFilePath); os.IsNotExist(err) {
+		log.Printf("Файл %s не найден, создаю его с тестовым содержимым.", localFilePath)
+		dummyContent := []byte("Это содержимое файла sample.txt для загрузки.")
+		err = os.WriteFile(localFilePath, dummyContent, 0644)
 		if err != nil {
-			log.Fatalf("Не удалось прочитать чанк из файла: %v", err)
-		}
-		err = stream.Send(&fileproto.UploadFileRequest{
-			Data: &fileproto.UploadFileRequest_Chunk{
-				Chunk: buffer[:n],
-			},
-		})
-		if err != nil {
-			log.Fatalf("Не удалось отправить чанк файла: %v. Ошибка стрима: %v", err, stream.RecvMsg(nil))
+			log.Fatalf("Не удалось создать %s: %v", localFilePath, err)
 		}
 	}
-	fmt.Println("Все чанки файла успешно отправлены.")
 
-	uploadResp, err := stream.CloseAndRecv()
+	uploadedFileId, err := uploadFile(fileCtxTimeout, fileClient, localFilePath, fileNameForServer)
 	if err != nil {
-		log.Fatalf("Не удалось получить ответ после загрузки файла: %v", err)
+		log.Fatalf("Ошибка загрузки файла: %v", err)
 	}
-	log.Printf("Ответ UploadFile: ID файла - %s, Сообщение - %s", uploadResp.GetFileId(), uploadResp.GetMessage())
-	fmt.Printf("Ответ UploadFile: ID файла - %s, Сообщение - %s\n", uploadResp.GetFileId(), uploadResp.GetMessage())
-	uploadedFileId := uploadResp.GetFileId()
+	log.Printf("Файл %s успешно загружен. ID файла: %s", localFilePath, uploadedFileId)
+	fmt.Printf("Файл %s успешно загружен. ID файла: %s\n", localFilePath, uploadedFileId)
 
 	// --- Получение списка файлов ---
 	log.Println("Попытка получить список файлов...")
@@ -170,7 +129,7 @@ func main() {
 	// --- Скачивание файла (пример) ---
 	if uploadedFileId != "" {
 		log.Printf("Попытка скачивания файла с ID: %s...", uploadedFileId)
-		fmt.Printf("Попытка скачивания файла с ID: %s...\n", uploadedFileId)
+		fmt.Printf("Попытка скачивания файла с ID: %s...\\n", uploadedFileId)
 		downloadStream, err := fileClient.DownloadFile(fileCtxTimeout, &fileproto.DownloadFileRequest{FileId: uploadedFileId})
 		if err != nil {
 			log.Fatalf("Не удалось начать скачивание файла: %v", err)
@@ -187,13 +146,24 @@ func main() {
 			}
 			downloadedData = append(downloadedData, resp.GetChunk()...)
 		}
-		downloadedFileName := "downloaded_" + dummyFileName
+		downloadedFileName := "downloaded_" + fileNameForServer // Используем имя файла, которое было на сервере
 		err = os.WriteFile(downloadedFileName, downloadedData, 0644)
 		if err != nil {
 			log.Fatalf("Не удалось сохранить скачанный файл: %v", err)
 		}
-		log.Printf("Файл %s успешно скачан и сохранен как %s. Размер: %d байт", dummyFileName, downloadedFileName, len(downloadedData))
-		fmt.Printf("Файл %s успешно скачан и сохранен как %s. Размер: %d байт\n", dummyFileName, downloadedFileName, len(downloadedData))
+		log.Printf("Файл %s успешно скачан и сохранен как %s. Размер: %d байт", fileNameForServer, downloadedFileName, len(downloadedData))
+		fmt.Printf("Файл %s успешно скачан и сохранен как %s. Размер: %d байт\\n", fileNameForServer, downloadedFileName, len(downloadedData))
+
+		// Проверка содержимого скачанного файла
+		// Сначала прочитаем оригинальный файл для сравнения
+		originalContent, err := os.ReadFile(localFilePath)
+		if err != nil {
+			log.Fatalf("Не удалось прочитать оригинальный файл %s для сравнения: %v", localFilePath, err)
+		}
+		if !bytes.Equal(downloadedData, originalContent) {
+			log.Fatalf("ОШИБКА: Содержимое скачанного файла не совпадает с оригиналом! Ожидалось: %s, Получено: %s", string(originalContent), string(downloadedData))
+		}
+		fmt.Println("Содержимое скачанного файла успешно проверено.")
 		defer os.Remove(downloadedFileName)
 	}
 
@@ -220,10 +190,10 @@ func main() {
 	}
 
 	// --- Переименование файла (RenameFile) ---
-	newFileName := "renamed_" + dummyFileName
+	newFileName := "renamed_" + fileNameForServer // Используем имя файла, которое было на сервере
 	if uploadedFileId != "" {
 		log.Printf("Попытка переименовать файл с ID: %s в '%s'...", uploadedFileId, newFileName)
-		fmt.Printf("Попытка переименовать файл с ID: %s в '%s'...!\n", uploadedFileId, newFileName)
+		fmt.Printf("Попытка переименовать файл с ID: %s в '%s'...!\\n", uploadedFileId, newFileName)
 		_, err := fileClient.RenameFile(fileCtxTimeout, &fileproto.RenameFileRequest{FileId: uploadedFileId, NewName: newFileName})
 		if err != nil {
 			log.Fatalf("Ошибка при переименовании файла: %v", err)
@@ -331,33 +301,143 @@ func main() {
 			revertedFileName := "reverted_" + newFileName // Используем newFileName, т.к. файл был переименован
 			err = os.WriteFile(revertedFileName, revertedData, 0644)
 			if err != nil {
-				log.Fatalf("Не удалось сохранить скачанный откаченный файл: %v", err)
+				log.Fatalf("Не удалось сохранить откаченный файл: %v", err)
 			}
-			log.Printf("Откаченный файл %s успешно скачан и сохранен как %s. Размер: %d байт", newFileName, revertedFileName, len(revertedData))
-			fmt.Printf("Откаченный файл %s успешно скачан и сохранен как %s. Размер: %d байт\n", newFileName, revertedFileName, len(revertedData))
+			log.Printf("Файл %s (версия 1) успешно скачан и сохранен как %s. Размер: %d байт", newFileName, revertedFileName, len(revertedData))
+
+			// Проверка содержимого откаченного файла (должен совпадать с первоначальным)
+			originalContentToCompare, err := os.ReadFile(localFilePath) // Считываем оригинальный файл еще раз для сравнения
+			if err != nil {
+				log.Fatalf("Не удалось прочитать оригинальный файл %s для сравнения после отката: %v", localFilePath, err)
+			}
+			if !bytes.Equal(revertedData, originalContentToCompare) {
+				log.Fatalf("ОШИБКА: Содержимое откаченного файла не совпадает с оригиналом (v1)! Ожидалось: %s, Получено: %s", string(originalContentToCompare), string(revertedData))
+			}
+			log.Println("Содержимое откаченного файла успешно проверено (v1).")
 			defer os.Remove(revertedFileName)
 		}
 	}
 
-	// --- Удаление файла (DeleteFile) --- TODO: Переместить в конец после всех тестов
-	/*
-		if uploadedFileId != "" {
-			log.Printf("Попытка удалить файл с ID: %s...", uploadedFileId)
-			_, err := fileClient.DeleteFile(fileCtxTimeout, &fileproto.DeleteFileRequest{FileId: uploadedFileId})
-			if err != nil {
-				log.Fatalf("Ошибка при удалении файла: %v", err)
-			}
-			log.Printf("Файл с ID: %s успешно удален.", uploadedFileId)
-
-			// Попытка получить информацию об удаленном файле (должна быть ошибка)
-			log.Printf("Попытка получить информацию об удаленном файле с ID: %s...", uploadedFileId)
-			_, err = fileClient.GetFileInfo(fileCtxTimeout, &fileproto.GetFileInfoRequest{FileId: uploadedFileId})
-			if err == nil {
-				log.Fatalf("ОШИБКА: GetFileInfo для удаленного файла не вернул ошибку!")
-			}
-			log.Printf("Получена ожидаемая ошибка при запросе информации об удаленном файле: %v", err)
+	// --- Удаление файла (DeleteFile) ---
+	if uploadedFileId != "" {
+		log.Printf("Попытка удалить файл с ID: %s...", uploadedFileId)
+		fmt.Printf("Попытка удалить файл с ID: %s...\n", uploadedFileId)
+		_, err := fileClient.DeleteFile(fileCtxTimeout, &fileproto.DeleteFileRequest{FileId: uploadedFileId})
+		if err != nil {
+			log.Fatalf("Ошибка при удалении файла: %v", err)
 		}
-	*/
+		log.Printf("Файл с ID: %s успешно удален.", uploadedFileId)
+		fmt.Printf("Файл с ID: %s успешно удален.\n", uploadedFileId)
 
-	fmt.Println("Работа клиента завершена.")
+		// Попытка получить информацию об удаленном файле (должна быть ошибка)
+		log.Printf("Попытка получить информацию об удаленном файле с ID: %s...", uploadedFileId)
+		fmt.Printf("Попытка получить информацию об удаленном файле с ID: %s...\n", uploadedFileId)
+		_, err = fileClient.GetFileInfo(fileCtxTimeout, &fileproto.GetFileInfoRequest{FileId: uploadedFileId})
+		if err == nil {
+			log.Fatalf("ОШИБКА: GetFileInfo для удаленного файла не вернул ошибку!")
+		}
+		st, ok := status.FromError(err)
+		if ok && (st.Code() == codes.NotFound || st.Code() == codes.Internal) { // Сервер может вернуть Internal, если GetFileByID возвращает ошибку до проверки прав
+			log.Printf("Получена ожидаемая ошибка '%s' при запросе информации об удаленном файле: %v", st.Code(), err)
+			fmt.Printf("Получена ожидаемая ошибка '%s' при запросе информации об удаленном файле: %v\n", st.Code(), err)
+		} else {
+			log.Fatalf("ОШИБКА: GetFileInfo для удаленного файла вернул неожиданную ошибку или не ошибку gRPC: %v", err)
+		}
+
+		// Проверка отсутствия файла в списке
+		log.Println("Попытка получить список файлов после удаления...")
+		fmt.Println("Попытка получить список файлов после удаления...")
+		listFilesAfterDeleteResp, errList := fileClient.ListFiles(fileCtxTimeout, &fileproto.ListFilesRequest{IncludeShared: false})
+		if errList != nil {
+			log.Fatalf("Ошибка при получении списка файлов после удаления: %v", errList)
+		}
+		foundDeletedFile := false
+		for _, f := range listFilesAfterDeleteResp.GetFiles() {
+			if f.GetFileId() == uploadedFileId {
+				foundDeletedFile = true
+				break
+			}
+		}
+		if foundDeletedFile {
+			log.Fatalf("ОШИБКА: Удаленный файл %s все еще присутствует в списке файлов!", uploadedFileId)
+		}
+		fmt.Printf("Удаленный файл %s не найден в списке файлов, как и ожидалось.\n", uploadedFileId)
+	}
+
+	fmt.Println("Все тесты файловых операций завершены.")
 }
+
+// uploadFile загружает файл по указанному пути в хранилище
+func uploadFile(ctx context.Context, client fileproto.FileServiceClient, filePath string, fileNameOnServer string) (string, error) {
+	log.Printf("Загрузка файла: %s как %s", filePath, fileNameOnServer)
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", fmt.Errorf("не удалось открыть файл %s: %w", filePath, err)
+	}
+	defer file.Close()
+
+	stream, err := client.UploadFile(ctx)
+	if err != nil {
+		return "", fmt.Errorf("не удалось открыть стрим для UploadFile: %w", err)
+	}
+
+	// Сначала отправляем метаданные
+	log.Println("Отправка метаданных файла...")
+	err = stream.Send(&fileproto.UploadFileRequest{
+		Data: &fileproto.UploadFileRequest_Metadata{
+			Metadata: &fileproto.FileMetadata{
+				Name:        fileNameOnServer,           // Используем переданное имя файла для сервера
+				ContentType: "application/octet-stream", // Общий тип для файлов
+			},
+		},
+	})
+	if err != nil {
+		// Попытка получить более детальную ошибку от сервера, если возможно
+		if recvErr := stream.RecvMsg(nil); recvErr != nil && recvErr != io.EOF {
+			return "", fmt.Errorf("не удалось отправить метаданные файла: %w (серверная ошибка: %v)", err, recvErr)
+		}
+		return "", fmt.Errorf("не удалось отправить метаданные файла: %w", err)
+	}
+	log.Println("Метаданные файла успешно отправлены.")
+
+	// Затем отправляем содержимое файла по частям (чанками)
+	log.Println("Отправка чанков файла...")
+	chunkSize := 1024 // 1KB
+	buffer := make([]byte, chunkSize)
+
+	for {
+		n, errRead := file.Read(buffer)
+		if n > 0 {
+			errSend := stream.Send(&fileproto.UploadFileRequest{
+				Data: &fileproto.UploadFileRequest_Chunk{
+					Chunk: buffer[:n],
+				},
+			})
+			if errSend != nil {
+				// Попытка получить более детальную ошибку от сервера
+				if recvErr := stream.RecvMsg(nil); recvErr != nil && recvErr != io.EOF {
+					return "", fmt.Errorf("не удалось отправить чанк файла: %w (серверная ошибка: %v)", errSend, recvErr)
+				}
+				return "", fmt.Errorf("не удалось отправить чанк файла: %w", errSend)
+			}
+		}
+		if errRead == io.EOF {
+			break
+		}
+		if errRead != nil {
+			return "", fmt.Errorf("не удалось прочитать чанк из файла %s: %w", filePath, errRead)
+		}
+	}
+	log.Println("Все чанки файла успешно отправлены.")
+
+	uploadResp, err := stream.CloseAndRecv()
+	if err != nil {
+		return "", fmt.Errorf("не удалось получить ответ после загрузки файла: %w", err)
+	}
+
+	log.Printf("Ответ UploadFile: ID файла - %s, Сообщение - %s", uploadResp.GetFileId(), uploadResp.GetMessage())
+	return uploadResp.GetFileId(), nil
+}
+
+// authenticateUser выполняет регистрацию (если необходимо) и вход пользователя, возвращая токен доступа.
+// ... existing code ...
