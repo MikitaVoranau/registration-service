@@ -63,7 +63,11 @@ func (h *FileHandler) DownloadFile(req *fileproto.DownloadFileRequest, stream fi
 	}
 	reader, _, err := h.fileService.DownloadFile(ctx, fileID)
 	if err != nil {
-		return status.Error(codes.Internal, "cannot downlaod file")
+		if err.Error() == "file not found" {
+			return status.Error(codes.NotFound, "file not found")
+		}
+		log.Printf("[FileHandler.DownloadFile] Error from service on DownloadFile call: %v", err)
+		return status.Error(codes.Internal, "cannot download file")
 	}
 	defer reader.(io.Closer).Close()
 	buf := make([]byte, 1024*32)

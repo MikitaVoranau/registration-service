@@ -235,7 +235,7 @@ func (s *FileService) RenameFile(ctx context.Context, fileID uuid.UUID, newName 
 	return nil
 }
 
-func (s *FileService) SetFilePermissions(ctx context.Context, fileID uuid.UUID, permissions []fileInfo.FilePermission) error {
+func (s *FileService) SetFilePermissions(ctx context.Context, fileID uuid.UUID, permissionsFromHandler []fileInfo.FilePermission) error {
 	userID, err := getUserIDFromContext(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get user ID: %v", err)
@@ -250,8 +250,20 @@ func (s *FileService) SetFilePermissions(ctx context.Context, fileID uuid.UUID, 
 	if file.OwnerID != userID {
 		return errors.New("only owner can set file permissions")
 	}
-	if err := s.fileRepo.SetFilePermissions(ctx, fileID, permissions); err != nil {
-		return fmt.Errorf("failed to set file permissions: %w", err)
+
+	// Создаем новый слайс с установленным FileID в каждом элементе
+	permissionsForRepo := make([]fileInfo.FilePermission, len(permissionsFromHandler))
+	for i, p := range permissionsFromHandler {
+		permissionsForRepo[i] = fileInfo.FilePermission{
+			FileID:     fileID, // Устанавливаем правильный FileID
+			UserID:     p.UserID,
+			Permission: p.Permission,
+		}
+	}
+
+	// Передаем обработанный слайс в репозиторий
+	if err := s.fileRepo.SetFilePermissions(ctx, fileID, permissionsForRepo); err != nil {
+		return fmt.Errorf("failed to set file permissions via repo: %w", err)
 	}
 	return nil
 }
